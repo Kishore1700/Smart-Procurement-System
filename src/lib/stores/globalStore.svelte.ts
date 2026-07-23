@@ -7,7 +7,7 @@ class GlobalStore {
 	currentUser = $state<User | null>(null);
 
 	// Active Theme (light or dark)
-	theme = $state<'light' | 'dark'>('dark');
+	theme = $state<'light' | 'dark'>('light');
 
 	// Sidebar expanded state
 	sidebarExpanded = $state<boolean>(true);
@@ -39,7 +39,7 @@ class GlobalStore {
 			if (savedTheme === 'light' || savedTheme === 'dark') {
 				this.theme = savedTheme;
 			} else {
-				this.theme = 'dark';
+				this.theme = 'light';
 			}
 			this.applyTheme();
 		}

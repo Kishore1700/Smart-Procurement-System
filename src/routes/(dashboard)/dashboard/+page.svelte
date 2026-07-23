@@ -355,7 +355,7 @@
 					Recent Activity Log
 				</h3>
 			</div>
-			<div class="space-y-4 overflow-y-auto max-h-[300px] flex-1">
+			<div class="space-y-4 overflow-y-auto max-h-75 flex-1">
 				{#each db.getAuditLogs().slice(0, 5) as log}
 					<div class="flex items-start gap-3">
 						<div class="p-1.5 bg-slate-50 rounded-lg text-slate-600 mt-0.5">

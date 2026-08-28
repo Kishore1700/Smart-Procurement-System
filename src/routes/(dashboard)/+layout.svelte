@@ -1,10 +1,9 @@
-<script lang="ts">
+<script>
 	import { goto } from '$app/navigation';
 	import { globalStore } from '$lib/stores/globalStore.svelte';
 	import Sidebar from '$lib/components/navigation/Sidebar.svelte';
 	import TopNav from '$lib/components/navigation/TopNav.svelte';
 	import Breadcrumbs from '$lib/components/navigation/Breadcrumbs.svelte';
-	import Toast from '$lib/components/ui/Toast.svelte';
 
 	let { children } = $props();
 
@@ -37,9 +36,6 @@
 				</div>
 			</main>
 		</div>
-
-		<!-- Global Reactive Alert System -->
-		<Toast />
 	</div>
 {:else}
 	<!-- Temporary Loading State while executing Guard -->

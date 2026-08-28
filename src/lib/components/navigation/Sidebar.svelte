@@ -1,4 +1,4 @@
-<script lang="ts">
+<script>
 	import { globalStore } from '$lib/stores/globalStore.svelte';
 	import { page } from '$app/state';
 	import {
@@ -14,6 +14,7 @@
 		Settings,
 		ChevronLeft,
 		ChevronRight,
+		User,
 		Briefcase,
 		ShieldAlert
 	} from '@lucide/svelte';
@@ -28,7 +29,7 @@
 				label: 'Dashboard',
 				href: '/dashboard',
 				icon: LayoutDashboard,
-				roles: ['Manager', 'Vendor']
+				roles: ['Employee', 'Manager', 'Vendor']
 			},
 			{
 				label: 'Purchase Requests',
@@ -101,60 +102,61 @@
 </script>
 
 <aside
-	class="h-screen bg-slate-900 text-slate-100 flex flex-col transition-all duration-300 border-r border-slate-800 shrink-0 relative z-30"
-	style="width: {isExpanded ? '260px' : '72px'}"
+	class="h-screen flex flex-col transition-all duration-300 shrink-0 relative z-30 shadow-2xl border-r border-slate-800/80 bg-slate-900 text-slate-100"
+	style="width: {isExpanded ? '264px' : '76px'};"
 >
 	<!-- Brand Header -->
-	<div class="h-16 flex items-center justify-between px-4 border-b border-slate-800">
-		<div class="flex items-center gap-2 overflow-hidden">
-			<div class="p-2 bg-primary rounded-lg text-primary-content">
+	<div class="h-16 flex items-center justify-between px-4.5 border-b border-slate-800/80 bg-slate-950/60 backdrop-blur-md">
+		<div class="flex items-center gap-3 overflow-hidden">
+			<div class="p-2 rounded-xl text-white bg-gradient-to-tr from-sky-600 to-cyan-500 shadow-md shadow-sky-500/20">
 				<ShieldAlert class="w-5 h-5 shrink-0" />
 			</div>
 			{#if isExpanded}
 				<div class="flex flex-col whitespace-nowrap animate-fade-in">
-					<span class="font-bold text-sm tracking-wide text-white uppercase">ProcureSmart</span>
-					<span class="text-[10px] text-slate-400 font-semibold tracking-wider">ENTERPRISE ERP</span>
+					<span class="font-extrabold text-sm tracking-wide bg-gradient-to-r from-white via-slate-100 to-sky-200 bg-clip-text text-transparent uppercase">ProcureSmart</span>
+					<span class="text-[9px] text-sky-400 font-bold tracking-widest uppercase">Enterprise ERP</span>
 				</div>
 			{/if}
 		</div>
 	</div>
 
 	<!-- Menu List -->
-	<nav class="flex-1 py-4 overflow-y-auto px-3 space-y-1">
+	<nav class="flex-1 py-4 overflow-y-auto px-2.5 space-y-1">
+		{#if isExpanded}
+			<div class="px-3 py-1.5 text-[10px] font-extrabold tracking-widest text-slate-400 uppercase">
+				Main Menu
+			</div>
+		{/if}
 		{#each menuItems as item}
 			{@const active = page.url.pathname.startsWith(item.href)}
 			<a
 				href={item.href}
-				class="flex items-center gap-3.5 py-2.5 px-3 rounded-lg text-sm font-medium transition-all duration-200"
-				class:bg-primary={active}
-				class:text-primary-content={active}
-				class:text-slate-300={!active}
-				class:hover:bg-slate-800={!active}
-				class:hover:text-white={!active}
+				class="flex items-center gap-3.5 py-2.5 px-3.5 rounded-xl text-[13px] font-semibold transition-all duration-200 group relative
+					{active 
+						? 'bg-gradient-to-r from-sky-600 to-blue-600 text-white shadow-lg shadow-sky-600/25 font-bold' 
+						: 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'}"
 				title={!isExpanded ? item.label : ''}
 			>
-				<item.icon class="w-5 h-5 shrink-0" />
+				<item.icon class="w-4.5 h-4.5 shrink-0 transition-transform duration-200 group-hover:scale-110 {active ? 'text-white' : 'text-slate-400 group-hover:text-sky-400'}" />
 				{#if isExpanded}
-					<span class="whitespace-nowrap">{item.label}</span>
+					<span class="whitespace-nowrap truncate">{item.label}</span>
 				{/if}
 			</a>
 		{/each}
 	</nav>
 
 	<!-- User Quick Tag / Collapse Trigger -->
-	<div class="p-3 border-t border-slate-800 bg-slate-950 flex flex-col gap-2">
+	<div class="p-3 border-t border-slate-800/80 bg-slate-950/60 flex flex-col gap-2">
 		{#if isExpanded && globalStore.currentUser}
-			<div class="flex items-center gap-2.5 px-2 py-1">
-				<img
-					src={globalStore.currentUser.avatarUrl}
-					alt={globalStore.currentUser.fullName}
-					class="w-8 h-8 rounded-full ring-2 ring-slate-800 shrink-0"
-				/>
+			<div class="flex items-center gap-3 px-2 py-1.5 rounded-lg bg-slate-900/80 border border-slate-800">
+				<div class="w-8 h-8 rounded-full bg-sky-500/20 text-sky-400 flex items-center justify-center shrink-0 border border-sky-500/30">
+					<User class="w-4 h-4" />
+				</div>
 				<div class="overflow-hidden">
-					<p class="text-xs font-semibold text-white truncate">
+					<p class="text-xs font-bold text-slate-100 truncate">
 						{globalStore.currentUser.fullName}
 					</p>
-					<p class="text-[10px] font-bold text-emerald-400 uppercase tracking-wider truncate">
+					<p class="text-[10px] font-extrabold text-sky-400 uppercase tracking-wider truncate">
 						{globalStore.currentUser.role === 'Manager' ? 'Manager / Admin' : globalStore.currentUser.role}
 					</p>
 				</div>
@@ -163,11 +165,11 @@
 
 		<button
 			onclick={toggleSidebar}
-			class="btn btn-ghost btn-xs text-slate-400 hover:text-white hover:bg-slate-800 w-full flex items-center justify-center gap-1 mt-1"
+			class="btn btn-ghost btn-xs text-slate-400 hover:text-white hover:bg-slate-800/80 w-full flex items-center justify-center gap-1.5 py-2 rounded-lg transition-colors"
 		>
 			{#if isExpanded}
 				<ChevronLeft class="w-4 h-4" />
-				<span class="text-[10px]">Collapse</span>
+				<span class="text-[10px] font-bold tracking-wider uppercase">Collapse Sidebar</span>
 			{:else}
 				<ChevronRight class="w-4 h-4" />
 			{/if}

@@ -1,4 +1,4 @@
-<script lang="ts">
+<script>
 	import { db } from '$lib/db/mockDb';
 	import { globalStore } from '$lib/stores/globalStore.svelte';
 	import ChartCard from '$lib/components/dashboard/ChartCard.svelte';
@@ -17,26 +17,26 @@
 	let invoices = $derived(db.getInvoices());
 
 	// Export functions
-	function exportCSV(type: 'requests' | 'budgets' | 'invoices') {
+	function exportCSV(/** @type {string} */ type) {
 		let headers = '';
-		let rows: string[] = [];
+		let rows = [];
 
 		if (type === 'requests') {
 			headers = 'Request ID,Title,Category,Cost,Status,Priority,Created Date\n';
 			rows = prs.map(
-				(p) =>
+				(/** @type {any} */ p) =>
 					`"${p.id}","${p.title}","${p.category}",${p.estimatedCost},"${p.status}","${p.priority}","${p.createdAt}"`
 			);
 		} else if (type === 'budgets') {
 			headers = 'Division ID,Division Name,Allocated Budget,Utilized Budget,Remaining Budget\n';
 			rows = depts.map(
-				(d) =>
+				(/** @type {any} */ d) =>
 					`"${d.id}","${d.name}",${d.allocatedBudget},${d.utilizedBudget},${d.remainingBudget}`
 			);
 		} else {
 			headers = 'Invoice Number,PO Link,Amount,Status,Submission Date\n';
 			rows = invoices.map(
-				(i) => `"${i.invoiceNumber}","${i.poNumber}",${i.amount},"${i.status}","${i.submittedAt}"`
+				(/** @type {any} */ i) => `"${i.invoiceNumber}","${i.poNumber}",${i.amount},"${i.status}","${i.submittedAt}"`
 			);
 		}
 
@@ -54,14 +54,14 @@
 
 	// Chart options
 	let categorySpendingChart = $derived.by(() => {
-		const cats = Array.from(new Set(prs.map((p) => p.category)));
+		const cats = Array.from(new Set(prs.map((/** @type {any} */ p) => p.category)));
 		return {
 			labels: cats,
 			datasets: [
 				{
 					label: 'Billed Value (₹)',
 					data: cats.map((cat) =>
-						prs.filter((p) => p.category === cat).reduce((sum, p) => sum + p.estimatedCost, 0)
+						prs.filter((/** @type {any} */ p) => p.category === cat).reduce((/** @type {number} */ sum, /** @type {any} */ p) => sum + p.estimatedCost, 0)
 					),
 					backgroundColor: 'rgba(59, 130, 246, 0.6)',
 					borderWidth: 0
@@ -73,10 +73,12 @@
 
 <div class="space-y-6">
 	<!-- Header -->
-	<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+	<div class="glass-card rounded-2xl p-6 shadow-xl border border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
 		<div>
-			<h1 class="text-xl md:text-2xl font-extrabold text-slate-900 tracking-tight">Analytics & Reports</h1>
-			<p class="text-xs text-slate-500 mt-1">
+			<h1 class="text-xl md:text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight flex items-center gap-2">
+				Analytics & Reports
+			</h1>
+			<p class="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
 				Export core data tables or review visual category distributions and budget allocations.
 			</p>
 		</div>
@@ -84,38 +86,47 @@
 
 	<!-- Export Cards -->
 	<div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs md:text-sm">
-		<div class="card bg-white border border-slate-200/80 p-5 rounded-xl shadow-sm flex flex-col justify-between gap-4">
+		<div class="glass-card border border-slate-200/80 dark:border-slate-800 p-6 rounded-2xl shadow-xl flex flex-col justify-between gap-5 group hover:-translate-y-1 transition-all duration-300">
 			<div>
-				<h3 class="font-extrabold text-slate-800">Purchase Requests Ledger</h3>
-				<p class="text-slate-500 text-[11px] mt-1">Detailed list of request categories, approvals, and cost estimates.</p>
+				<div class="p-2.5 rounded-xl bg-sky-500/10 text-sky-500 border border-sky-500/20 w-fit mb-3">
+					<FileSpreadsheet class="w-5 h-5" />
+				</div>
+				<h3 class="font-black text-slate-900 dark:text-slate-100 text-sm">Purchase Requests Ledger</h3>
+				<p class="text-slate-500 dark:text-slate-400 text-[11px] mt-1 font-medium leading-relaxed">Detailed list of request categories, approvals, and cost estimates.</p>
 			</div>
 			<div class="flex gap-2">
-				<button onclick={() => exportCSV('requests')} class="btn btn-ghost border-slate-200 hover:bg-slate-50 btn-xs font-bold rounded flex items-center">
-					<FileSpreadsheet class="w-3.5 h-3.5 mr-1" /> CSV
+				<button onclick={() => exportCSV('requests')} class="btn btn-gradient-primary btn-xs font-extrabold rounded-xl px-4 py-2 flex items-center shadow-md shadow-sky-600/20">
+					<FileDown class="w-3.5 h-3.5 mr-1.5" /> Export CSV
 				</button>
 			</div>
 		</div>
 
-		<div class="card bg-white border border-slate-200/80 p-5 rounded-xl shadow-sm flex flex-col justify-between gap-4">
+		<div class="glass-card border border-slate-200/80 dark:border-slate-800 p-6 rounded-2xl shadow-xl flex flex-col justify-between gap-5 group hover:-translate-y-1 transition-all duration-300">
 			<div>
-				<h3 class="font-extrabold text-slate-800">Department Budget Metrics</h3>
-				<p class="text-slate-500 text-[11px] mt-1">Allocated annual thresholds, current utilized sums, and remainders.</p>
+				<div class="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 w-fit mb-3">
+					<BarChart3 class="w-5 h-5" />
+				</div>
+				<h3 class="font-black text-slate-900 dark:text-slate-100 text-sm">Department Budget Metrics</h3>
+				<p class="text-slate-500 dark:text-slate-400 text-[11px] mt-1 font-medium leading-relaxed">Allocated annual thresholds, current utilized sums, and remainders.</p>
 			</div>
 			<div class="flex gap-2">
-				<button onclick={() => exportCSV('budgets')} class="btn btn-ghost border-slate-200 hover:bg-slate-50 btn-xs font-bold rounded flex items-center">
-					<FileSpreadsheet class="w-3.5 h-3.5 mr-1" /> CSV
+				<button onclick={() => exportCSV('budgets')} class="btn btn-gradient-primary btn-xs font-extrabold rounded-xl px-4 py-2 flex items-center shadow-md shadow-sky-600/20">
+					<FileDown class="w-3.5 h-3.5 mr-1.5" /> Export CSV
 				</button>
 			</div>
 		</div>
 
-		<div class="card bg-white border border-slate-200/80 p-5 rounded-xl shadow-sm flex flex-col justify-between gap-4">
+		<div class="glass-card border border-slate-200/80 dark:border-slate-800 p-6 rounded-2xl shadow-xl flex flex-col justify-between gap-5 group hover:-translate-y-1 transition-all duration-300">
 			<div>
-				<h3 class="font-extrabold text-slate-800">Invoices & Financial Auditing</h3>
-				<p class="text-slate-500 text-[11px] mt-1">Verified payouts, submitted billings, and payment settlements status.</p>
+				<div class="p-2.5 rounded-xl bg-purple-500/10 text-purple-500 border border-purple-500/20 w-fit mb-3">
+					<TrendingUp class="w-5 h-5" />
+				</div>
+				<h3 class="font-black text-slate-900 dark:text-slate-100 text-sm">Invoices & Financial Auditing</h3>
+				<p class="text-slate-500 dark:text-slate-400 text-[11px] mt-1 font-medium leading-relaxed">Verified payouts, submitted billings, and payment settlements status.</p>
 			</div>
 			<div class="flex gap-2">
-				<button onclick={() => exportCSV('invoices')} class="btn btn-ghost border-slate-200 hover:bg-slate-50 btn-xs font-bold rounded flex items-center">
-					<FileSpreadsheet class="w-3.5 h-3.5 mr-1" /> CSV
+				<button onclick={() => exportCSV('invoices')} class="btn btn-gradient-primary btn-xs font-extrabold rounded-xl px-4 py-2 flex items-center shadow-md shadow-sky-600/20">
+					<FileDown class="w-3.5 h-3.5 mr-1.5" /> Export CSV
 				</button>
 			</div>
 		</div>
@@ -130,3 +141,4 @@
 		/>
 	</div>
 </div>
+

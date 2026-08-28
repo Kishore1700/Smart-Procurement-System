@@ -1,31 +1,26 @@
-<script lang="ts">
+<script>
 	import { onMount } from 'svelte';
 	import Chart from 'chart.js/auto';
 
 	let {
 		title = 'Chart Title',
 		type = 'bar',
-		data = {},
+		data = { labels: [], datasets: [] },
 		options = {}
-	}: {
-		title?: string;
-		type?: 'bar' | 'line' | 'doughnut' | 'pie';
-		data: any;
-		options?: any;
 	} = $props();
 
-	let canvasElement = $state<HTMLCanvasElement | null>(null);
-	let chartInstance: Chart | null = null;
+	let canvasElement = $state(/** @type {HTMLCanvasElement | null} */ (null));
+	let chartInstance = /** @type {any} */ (null);
 
-	// In Svelte 5, we can use $effect to re-render the chart whenever data or configuration changes
+	// In Svelte 5, we use $effect to re-render the chart whenever data or configuration changes
 	$effect(() => {
 		if (canvasElement && data) {
 			if (chartInstance) {
 				chartInstance.destroy();
 			}
 			chartInstance = new Chart(canvasElement, {
-				type,
-				data,
+				type: /** @type {any} */ (type),
+				data: /** @type {any} */ (data),
 				options: {
 					responsive: true,
 					maintainAspectRatio: false,
@@ -49,9 +44,14 @@
 	});
 </script>
 
-<div class="card bg-white border border-slate-200/80 shadow-sm rounded-xl p-5 flex flex-col h-80">
-	<h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">{title}</h3>
+<div class="card glass-card rounded-2xl p-5 flex flex-col h-80 border border-slate-200/80 dark:border-slate-800 shadow-xl transition-all duration-300 hover:shadow-2xl relative overflow-hidden">
+	<div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-sky-500 via-blue-600 to-cyan-400"></div>
+	<div class="flex items-center justify-between mb-4 border-b border-slate-100 dark:border-slate-800/80 pb-3">
+		<h3 class="text-xs font-extrabold text-slate-700 dark:text-slate-200 uppercase tracking-wider">{title}</h3>
+		<span class="w-2 h-2 rounded-full bg-sky-500 animate-pulse"></span>
+	</div>
 	<div class="flex-1 relative min-h-0 w-full">
 		<canvas bind:this={canvasElement}></canvas>
 	</div>
 </div>
+

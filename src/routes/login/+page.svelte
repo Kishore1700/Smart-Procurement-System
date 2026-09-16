@@ -239,7 +239,7 @@
 						{/if}
 					</div>
 
-					<button type="submit" class="btn btn-gradient-primary w-full text-xs font-extrabold rounded-xl py-3 h-auto shadow-lg shadow-sky-600/25">
+					<button type="submit" class="btn btn-gradient-primary w-full text-sm font-semibold rounded-xl py-3.5 h-auto shadow-lg shadow-sky-600/25">
 						Sign In
 						<ArrowRight class="w-4 h-4 ml-1.5" />
 					</button>
@@ -274,7 +274,7 @@
 						</div>
 					</div>
 
-					<button type="submit" class="btn btn-gradient-primary w-full text-xs font-extrabold rounded-xl py-3 h-auto shadow-lg shadow-sky-600/25">
+					<button type="submit" class="btn btn-gradient-primary w-full text-sm font-semibold rounded-xl py-3.5 h-auto shadow-lg shadow-sky-600/25">
 						Send Reset Link
 					</button>
 
@@ -403,8 +403,8 @@
 						{/if}
 					</div>
 
-					<button type="submit" class="btn btn-gradient-primary w-full text-xs font-extrabold rounded-xl py-3 h-auto mt-2 shadow-lg shadow-sky-600/25">
-						Register Account
+					<button type="submit" class="btn btn-gradient-primary w-full text-sm font-semibold rounded-xl py-3.5 h-auto mt-2 shadow-lg shadow-sky-600/25">
+						Create Enterprise Account
 					</button>
 
 					<div class="text-center mt-4">
@@ -464,16 +464,6 @@
 				{/each}
 			</div>
 
-			<!-- Budget Alert Mock visual -->
-			<div class="p-4 bg-sky-950/40 border border-sky-800/50 rounded-2xl flex items-start gap-3">
-				<Building class="w-5 h-5 text-sky-400 shrink-0 mt-0.5" />
-				<div>
-					<h4 class="text-xs font-bold text-slate-200">Department Budgets Integrated</h4>
-					<p class="text-[11px] text-slate-400 mt-0.5 leading-snug">
-						Includes real-time threshold checks, automated quotation scoring, and role-based workflows for enterprise procurement management.
-					</p>
-				</div>
-			</div>
 		</div>
 	</div>
 </div>

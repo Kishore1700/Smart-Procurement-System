@@ -61,10 +61,9 @@
 		</div>
 
 		<div class="flex items-center gap-6">
-			<a href="#features" class="text-xs font-bold text-slate-400 hover:text-white transition-colors hidden md:inline">Capabilities</a>
 			<button 
 				onclick={handleEnterPortal} 
-				class="btn btn-gradient-primary btn-sm text-xs font-extrabold px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-sky-600/25"
+				class="btn btn-gradient-primary text-sm font-semibold px-5 py-2.5 rounded-xl flex items-center gap-2 shadow-lg shadow-sky-600/25"
 			>
 				Enter Portal
 				<ArrowRight class="w-4 h-4" />
@@ -90,16 +89,16 @@
 			<div class="flex flex-wrap items-center justify-center gap-4 pt-2">
 				<button 
 					onclick={handleEnterPortal} 
-					class="btn btn-gradient-primary text-xs font-extrabold px-8 py-4 h-auto rounded-2xl flex items-center gap-2 shadow-xl shadow-sky-600/30"
+					class="btn btn-gradient-primary text-sm sm:text-base font-semibold px-8 py-3.5 h-auto rounded-2xl flex items-center gap-2.5 shadow-xl shadow-sky-600/30"
 				>
 					Access Enterprise Console
 					<ArrowRight class="w-4 h-4" />
 				</button>
 				<a 
 					href="#features" 
-					class="btn btn-ghost border border-slate-800 hover:bg-slate-900 text-xs font-extrabold px-8 py-4 h-auto rounded-2xl text-slate-300 transition-colors"
+					class="btn btn-ghost border border-slate-800 hover:bg-slate-900 text-sm sm:text-base font-semibold px-8 py-3.5 h-auto rounded-2xl text-slate-200 transition-colors"
 				>
-					Explore Capabilities
+					Explore Features
 				</a>
 			</div>
 		</section>
@@ -107,7 +106,7 @@
 		<!-- Features Grid Section -->
 		<section id="features" class="space-y-12 pt-12 border-t border-slate-800/80">
 			<div class="text-center max-w-2xl mx-auto space-y-3">
-				<h2 class="text-xs font-black tracking-widest uppercase text-sky-400">Integrated Platform Capabilities</h2>
+				<h2 class="text-xs font-black tracking-widest uppercase text-sky-400">Integrated Platform Features</h2>
 				<h3 class="text-3xl md:text-4xl font-extrabold text-white">Full-Lifecycle Procurement Pipeline</h3>
 				<p class="text-slate-400 text-xs md:text-sm">
 					Empower your enterprise teams with modern, auto-validated workflows across all key procurement stages.
@@ -167,7 +166,7 @@
 			<div class="flex flex-wrap items-center justify-center gap-4 pt-2">
 				<button 
 					onclick={handleEnterPortal} 
-					class="btn btn-gradient-primary text-xs font-extrabold px-8 py-3.5 rounded-xl shadow-lg shadow-sky-600/30 flex items-center gap-2"
+					class="btn btn-gradient-primary text-sm sm:text-base font-semibold px-8 py-3.5 rounded-xl shadow-lg shadow-sky-600/30 flex items-center gap-2"
 				>
 					Launch Interactive Demo
 					<ArrowRight class="w-4 h-4" />
@@ -228,7 +227,7 @@
 
 				<!-- Column 1: Core Modules -->
 				<div class="space-y-4">
-					<h4 class="text-xs font-black uppercase text-white tracking-widest">Capabilities</h4>
+					<h4 class="text-xs font-black uppercase text-white tracking-widest">Features</h4>
 					<ul class="space-y-2.5 text-xs font-medium text-slate-400">
 						<li>
 							<a href="#features" class="hover:text-sky-400 transition-colors">Purchase Requisitions</a>

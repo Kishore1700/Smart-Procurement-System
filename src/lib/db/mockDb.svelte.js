@@ -15,8 +15,8 @@ const initialDepartments = [
 		managerId: 'user-mgr1',
 		annualBudget: 500000,
 		allocatedBudget: 500000,
-		utilizedBudget: 150000,
-		remainingBudget: 350000
+		utilizedBudget: 0,
+		remainingBudget: 500000
 	},
 	{
 		id: 'dept-kitchen',
@@ -24,8 +24,8 @@ const initialDepartments = [
 		managerId: 'user-mgr1',
 		annualBudget: 300000,
 		allocatedBudget: 300000,
-		utilizedBudget: 80000,
-		remainingBudget: 220000
+		utilizedBudget: 0,
+		remainingBudget: 300000
 	},
 	{
 		id: 'dept-clothes',
@@ -33,8 +33,8 @@ const initialDepartments = [
 		managerId: 'user-mgr1',
 		annualBudget: 200000,
 		allocatedBudget: 200000,
-		utilizedBudget: 50000,
-		remainingBudget: 150000
+		utilizedBudget: 0,
+		remainingBudget: 200000
 	},
 	{
 		id: 'dept-toys',
@@ -42,8 +42,8 @@ const initialDepartments = [
 		managerId: 'user-mgr1',
 		annualBudget: 150000,
 		allocatedBudget: 150000,
-		utilizedBudget: 30000,
-		remainingBudget: 120000
+		utilizedBudget: 0,
+		remainingBudget: 150000
 	},
 	{
 		id: 'dept-deptstore',
@@ -51,8 +51,8 @@ const initialDepartments = [
 		managerId: 'user-mgr1',
 		annualBudget: 800000,
 		allocatedBudget: 800000,
-		utilizedBudget: 400000,
-		remainingBudget: 400000
+		utilizedBudget: 0,
+		remainingBudget: 800000
 	},
 	{
 		id: 'dept-footwear',
@@ -60,8 +60,8 @@ const initialDepartments = [
 		managerId: 'user-mgr1',
 		annualBudget: 250000,
 		allocatedBudget: 250000,
-		utilizedBudget: 60000,
-		remainingBudget: 190000
+		utilizedBudget: 0,
+		remainingBudget: 250000
 	},
 	{
 		id: 'dept-furniture',
@@ -69,8 +69,8 @@ const initialDepartments = [
 		managerId: 'user-mgr1',
 		annualBudget: 400000,
 		allocatedBudget: 400000,
-		utilizedBudget: 200000,
-		remainingBudget: 200000
+		utilizedBudget: 0,
+		remainingBudget: 400000
 	},
 	{
 		id: 'dept-others',
@@ -166,264 +166,29 @@ const initialVendors = [
 	}
 ];
 
-// Seed Purchase Requests
-const initialPurchaseRequests = [
-	{
-		id: 'pr-001',
-		title: 'Developer Laptops Upgrade',
-		description: 'Purchase of high-performance laptops for new engineering hires and hardware refresh.',
-		departmentId: 'dept-electronics',
-		requesterId: 'user-emp1',
-		category: 'Computer Hardware',
-		priority: 'High',
-		estimatedCost: 15000,
-		attachmentUrl: '/dummy_specs.pdf',
-		attachmentName: 'laptop_specs.pdf',
-		status: 'Pending Approval',
-		currentApproverId: 'user-mgr1',
-		items: [
-			{
-				id: 'pri-1',
-				itemName: 'Developer Laptop 16" (32GB RAM, 1TB SSD)',
-				quantity: 5,
-				unitPrice: 2500,
-				estimatedCost: 12500
-			},
-			{
-				id: 'pri-2',
-				itemName: 'USB-C Dual Monitor Docking Stations',
-				quantity: 5,
-				unitPrice: 500,
-				estimatedCost: 2500
-			}
-		],
-		budgetStatus: 'Valid',
-		createdAt: '2026-07-15T09:00:00Z',
-		updatedAt: '2026-07-15T09:00:00Z'
-	},
-	{
-		id: 'pr-002',
-		title: 'Office Ergonomic Chairs',
-		description: 'Replacement of damaged and worn out office chairs in the main department floor.',
-		departmentId: 'dept-furniture',
-		requesterId: 'user-emp1',
-		category: 'Office Furniture',
-		priority: 'Medium',
-		estimatedCost: 3600,
-		attachmentUrl: null,
-		attachmentName: null,
-		status: 'Approved',
-		currentApproverId: null,
-		items: [
-			{
-				id: 'pri-3',
-				itemName: 'Ergonomic Task Chair (Mesh Back)',
-				quantity: 12,
-				unitPrice: 300,
-				estimatedCost: 3600
-			}
-		],
-		budgetStatus: 'Valid',
-		createdAt: '2026-07-10T10:30:00Z',
-		updatedAt: '2026-07-12T11:45:00Z'
-	},
-	{
-		id: 'pr-003',
-		title: 'Enterprise ERP Cloud Software License Renewal',
-		description: 'Annual licensing fees renewal for CRM and Cloud Infrastructure tools.',
-		departmentId: 'dept-electronics',
-		requesterId: 'user-emp1',
-		category: 'Software Licenses',
-		priority: 'Urgent',
-		estimatedCost: 140000,
-		attachmentUrl: null,
-		attachmentName: null,
-		status: 'Approved',
-		currentApproverId: null,
-		items: [
-			{
-				id: 'pri-4',
-				itemName: 'Cloud ERP Software Subscription (100 Users)',
-				quantity: 1,
-				unitPrice: 140000,
-				estimatedCost: 140000
-			}
-		],
-		budgetStatus: 'Valid',
-		createdAt: '2026-07-11T13:00:00Z',
-		updatedAt: '2026-07-13T16:20:00Z'
-	}
-];
+// Seed Purchase Requests (Empty for clean production setup)
+const initialPurchaseRequests = [];
 
-// Seed Approvals
-const initialApprovals = [
-	{
-		id: 'app-1',
-		requestId: 'pr-002',
-		approverId: 'user-mgr1',
-		approverRole: 'Manager',
-		status: 'Approved',
-		comments: 'Crucial for employee health and workplace ergonomics. Approved.',
-		actionDate: '2026-07-12T11:45:00Z'
-	},
-	{
-		id: 'app-2',
-		requestId: 'pr-003',
-		approverId: 'user-mgr1',
-		approverRole: 'Manager',
-		status: 'Approved',
-		comments: 'Essential software, must renew. Approved.',
-		actionDate: '2026-07-12T14:30:00Z'
-	},
-	{
-		id: 'app-3',
-		requestId: 'pr-003',
-		approverId: 'user-mgr1',
-		approverRole: 'Manager',
-		status: 'Approved',
-		comments: 'Finance reviewed budget allocation. Fully approved.',
-		actionDate: '2026-07-13T16:20:00Z'
-	}
-];
+// Seed Approvals (Empty for clean production setup)
+const initialApprovals = [];
 
-// Seed Quotations
-const initialQuotations = [
-	{
-		id: 'q-1',
-		requestId: 'pr-001',
-		vendorId: 'vendor-acme',
-		price: 15500,
-		deliveryTimeDays: 10,
-		warrantyMonths: 12,
-		attachmentUrl: '/quote_acme.pdf',
-		terms: 'Net 30 payment terms. Free shipping included.',
-		status: 'Submitted',
-		recommendationScore: 78,
-		isLowestPrice: false,
-		createdAt: '2026-07-16T10:00:00Z'
-	},
-	{
-		id: 'q-2',
-		requestId: 'pr-001',
-		vendorId: 'vendor-apex',
-		price: 14800,
-		deliveryTimeDays: 5,
-		warrantyMonths: 24,
-		attachmentUrl: '/quote_apex.pdf',
-		terms: 'Net 15 payment terms. Next-day delivery.',
-		status: 'Submitted',
-		recommendationScore: 95,
-		isLowestPrice: true,
-		createdAt: '2026-07-16T11:30:00Z'
-	}
-];
+// Seed Quotations (Empty for clean production setup)
+const initialQuotations = [];
 
-// Seed Purchase Orders
-const initialPurchaseOrders = [
-	{
-		id: 'po-1',
-		requestId: 'pr-002',
-		poNumber: 'PO-2026-0001',
-		vendorId: 'vendor-acme',
-		totalAmount: 3600,
-		termsAndConditions: 'Deliver to Warehouse A. Payment after complete inspection.',
-		status: 'Approved',
-		createdById: 'user-mgr1',
-		createdAt: '2026-07-13T10:00:00Z'
-	},
-	{
-		id: 'po-2',
-		requestId: 'pr-003',
-		poNumber: 'PO-2026-0002',
-		vendorId: 'vendor-apex',
-		totalAmount: 140000,
-		termsAndConditions: 'Electronic delivery of license keys. 1-year contract duration.',
-		status: 'Issued',
-		createdById: 'user-mgr1',
-		createdAt: '2026-07-14T09:30:00Z'
-	}
-];
+// Seed Purchase Orders (Empty for clean production setup)
+const initialPurchaseOrders = [];
 
-// Seed Deliveries
-const initialDeliveries = [
-	{
-		id: 'del-1',
-		poNumber: 'PO-2026-0001',
-		status: 'Delivered',
-		trackingNumber: 'TRK-ACME-88910',
-		carrier: 'UPS Ground',
-		estimatedDeliveryDate: '2026-07-18T17:00:00Z',
-		actualDeliveryDate: '2026-07-16T14:15:00Z',
-		notes: 'All 12 chairs received in perfect condition. Unboxed and placed in main department floor.',
-		itemsReceived: [
-			{
-				itemId: 'pri-3',
-				quantityReceived: 12
-			}
-		],
-		createdAt: '2026-07-14T11:00:00Z'
-	}
-];
+// Seed Deliveries (Empty for clean production setup)
+const initialDeliveries = [];
 
-// Seed Invoices
-const initialInvoices = [
-	{
-		id: 'inv-1',
-		poNumber: 'PO-2026-0001',
-		invoiceNumber: 'INV-ACME-5541',
-		amount: 3600,
-		attachmentUrl: '/invoice_acme.pdf',
-		status: 'Verified',
-		submittedAt: '2026-07-16T15:00:00Z',
-		verifiedAt: '2026-07-17T09:00:00Z',
-		verifiedById: 'user-mgr1',
-		paidAt: null
-	}
-];
+// Seed Invoices (Empty for clean production setup)
+const initialInvoices = [];
 
-// Seed Notifications
-const initialNotifications = [
-	{
-		id: 'notif-1',
-		userId: 'user-mgr1',
-		title: 'New Purchase Request Pending',
-		message: 'Alice Johnson submitted "Developer Laptops Upgrade" for Electronics department approval.',
-		isRead: false,
-		type: 'Alert',
-		createdAt: '2026-07-15T09:01:00Z'
-	},
-	{
-		id: 'notif-2',
-		userId: 'user-emp1',
-		title: 'Request Approved',
-		message: 'Your purchase request "Office Ergonomic Chairs" has been approved.',
-		isRead: true,
-		type: 'Success',
-		createdAt: '2026-07-12T11:46:00Z'
-	}
-];
+// Seed Notifications (Empty for clean production setup)
+const initialNotifications = [];
 
-// Seed Audit Logs
-const initialAuditLogs = [
-	{
-		id: 'log-1',
-		userId: 'user-emp1',
-		username: 'employee',
-		role: 'Employee',
-		action: 'Create Purchase Request',
-		details: 'Created PR "Developer Laptops Upgrade" with estimated cost of ₹15,000.',
-		timestamp: '2026-07-15T09:00:00Z'
-	},
-	{
-		id: 'log-2',
-		userId: 'user-mgr1',
-		username: 'manager',
-		role: 'Manager',
-		action: 'Approve Purchase Request',
-		details: 'Approved PR "Office Ergonomic Chairs" (₹3,600).',
-		timestamp: '2026-07-12T11:45:00Z'
-	}
-];
+// Seed Audit Logs (Empty for clean production setup)
+const initialAuditLogs = [];
 
 // Database state accessor
 class MockDatabase {

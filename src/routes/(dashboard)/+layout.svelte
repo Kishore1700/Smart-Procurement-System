@@ -16,17 +16,17 @@
 </script>
 
 {#if globalStore.currentUser}
-	<div class="flex h-screen bg-slate-50/50 text-slate-800 font-sans transition-colors overflow-hidden">
-		<!-- Sidebar Collapsible -->
+	<div class="flex h-screen w-screen bg-slate-50/50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans transition-colors overflow-hidden">
+		<!-- Sidebar Collapsible (Independent Scrollable Container) -->
 		<Sidebar />
 
 		<!-- Main Page Frame -->
-		<div class="flex-1 flex flex-col h-screen overflow-hidden">
-			<!-- Top Navigation -->
+		<div class="flex-1 flex flex-col h-screen min-w-0 min-h-0 overflow-hidden">
+			<!-- Top Navigation (Fixed Header) -->
 			<TopNav />
 
-			<!-- Scrolling Main Content Area -->
-			<main class="flex-1 overflow-y-auto p-6 md:p-8">
+			<!-- Scrolling Main Content Area (Independent Scroll Container) -->
+			<main class="flex-1 min-h-0 overflow-y-auto p-6 md:p-8">
 				<div class="max-w-7xl mx-auto w-full">
 					<!-- Breadcrumbs Navigation -->
 					<Breadcrumbs />

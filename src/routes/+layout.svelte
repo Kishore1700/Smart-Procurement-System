@@ -1,8 +1,15 @@
 <script>
 	import './layout.css';
 	import Toast from '$lib/components/ui/Toast.svelte';
+	import { globalStore } from '$lib/stores/globalStore.svelte';
 
 	let { children } = $props();
+
+	$effect(() => {
+		if (typeof window !== 'undefined') {
+			document.documentElement.setAttribute('data-theme', globalStore.theme);
+		}
+	});
 </script>
 
 <svelte:head>

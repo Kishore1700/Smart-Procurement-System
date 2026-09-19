@@ -8,7 +8,6 @@
 		CheckCircle,
 		FileText,
 		Truck,
-		Sparkles,
 		Globe,
 		Mail,
 		Send,
@@ -76,10 +75,6 @@
 		
 		<!-- Hero Section -->
 		<section class="flex flex-col items-center text-center max-w-3xl mx-auto space-y-8">
-			<div class="inline-flex items-center gap-2 px-4 py-1.5 bg-sky-950/60 border border-sky-500/30 text-sky-400 text-xs font-extrabold uppercase tracking-widest rounded-full shadow-inner">
-				<Sparkles class="w-3.5 h-3.5" />
-				Smart ERP Auto-Verification Active
-			</div>
 			<h1 class="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight leading-[1.1] text-white">
 				Next-Gen Digital <span class="bg-gradient-to-r from-sky-400 via-cyan-400 to-blue-500 bg-clip-text text-transparent">Procurement</span> System
 			</h1>

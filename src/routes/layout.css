@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 @plugin 'daisyui';
 
 @theme {
@@ -37,6 +38,33 @@ body {
 	font-family: 'Outfit', 'Plus Jakarta Sans', system-ui, sans-serif;
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
+}
+
+/* Seamless Theme Color Transitions */
+html,
+body,
+aside,
+header,
+main,
+nav,
+.glass-card,
+.input,
+.select,
+.textarea,
+table,
+th,
+td {
+	transition: background-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+	            color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+	            border-color 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+	            box-shadow 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Native View Transition API Crossfade Animation */
+::view-transition-old(root),
+::view-transition-new(root) {
+	animation-duration: 0.35s;
+	animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -105,11 +133,17 @@ html[data-theme="dark"] body {
 
 /* Glassmorphism Utility Classes */
 .glass-card {
-	background: rgba(255, 255, 255, 0.75);
+	background: rgba(255, 255, 255, 0.88);
 	backdrop-filter: blur(12px);
 	-webkit-backdrop-filter: blur(12px);
-	border: 1px solid rgba(226, 232, 240, 0.8);
-	box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.05);
+	border: 1px solid rgba(226, 232, 240, 0.85);
+	box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.04);
+	transition: border-color 0.22s ease, box-shadow 0.22s ease, transform 0.22s ease;
+}
+
+html[data-theme="light"] .glass-card:hover {
+	border-color: rgba(2, 132, 199, 0.35);
+	box-shadow: 0 12px 30px -4px rgba(0, 0, 0, 0.08), 0 4px 12px -2px rgba(2, 132, 199, 0.06);
 }
 
 html[data-theme="dark"] .glass-card {
@@ -120,119 +154,60 @@ html[data-theme="dark"] .glass-card {
 	box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
 }
 
-/* Dark Mode Dynamic Class Overrides */
-html[data-theme="dark"] .bg-white {
-	background-color: #121826 !important;
-	color: #f8fafc !important;
+/* Modals & Dropdowns in Light & Dark Themes */
+html[data-theme="light"] .modal-box,
+html[data-theme="light"] .dropdown-content {
+	background-color: #ffffff;
+	border: 1px solid #e2e8f0;
+	box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.12);
+	color: #0f172a;
 }
 
-html[data-theme="dark"] .bg-slate-50\/50,
-html[data-theme="dark"] .bg-slate-50 {
-	background-color: #0b0f17 !important;
+/* Form Controls - Light & Dark Theme */
+html[data-theme="light"] .input,
+html[data-theme="light"] .select,
+html[data-theme="light"] .textarea {
+	background-color: #ffffff;
+	border-color: #cbd5e1;
+	color: #0f172a;
 }
 
-html[data-theme="dark"] .border-slate-200,
-html[data-theme="dark"] .border-slate-200\/80,
-html[data-theme="dark"] .border-slate-300\/60,
-html[data-theme="dark"] .border-slate-300 {
-	border-color: #1e293b !important;
+html[data-theme="light"] .input:hover,
+html[data-theme="light"] .select:hover,
+html[data-theme="light"] .textarea:hover {
+	border-color: #94a3b8;
 }
 
-html[data-theme="dark"] .border-slate-100 {
-	border-color: #172033 !important;
+html[data-theme="light"] .input:focus,
+html[data-theme="light"] .select:focus,
+html[data-theme="light"] .textarea:focus {
+	border-color: #0284c7;
+	box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+	outline: none;
 }
 
-html[data-theme="dark"] .text-slate-800 {
-	color: #f1f5f9 !important;
-}
-
-html[data-theme="dark"] .text-slate-900 {
-	color: #f8fafc !important;
-}
-
-html[data-theme="dark"] .text-slate-700 {
-	color: #cbd5e1 !important;
-}
-
-html[data-theme="dark"] .text-slate-600 {
-	color: #94a3b8 !important;
-}
-
-html[data-theme="dark"] .text-slate-500,
-html[data-theme="dark"] .text-slate-400 {
-	color: #64748b !important;
-}
-
-html[data-theme="dark"] .bg-slate-900 {
-	background-color: #0f172a !important;
-}
-
-html[data-theme="dark"] .bg-slate-950 {
-	background-color: #020617 !important;
-}
-
-html[data-theme="dark"] .hover:bg-slate-50:hover,
-html[data-theme="dark"] .hover:bg-slate-50\/50:hover,
-html[data-theme="dark"] .hover:bg-slate-100\/50:hover,
-html[data-theme="dark"] .hover:bg-slate-100:hover {
-	background-color: #1a2333 !important;
-}
-
-/* DaisyUI Input and Modal dark styles */
 html[data-theme="dark"] .input,
 html[data-theme="dark"] .select,
 html[data-theme="dark"] .textarea {
-	background-color: #0d131f !important;
-	border-color: #1e293b !important;
-	color: #f8fafc !important;
+	background-color: #0d131f;
+	border-color: #1e293b;
+	color: #f8fafc;
 }
 
 html[data-theme="dark"] .input:focus,
 html[data-theme="dark"] .select:focus,
 html[data-theme="dark"] .textarea:focus {
-	border-color: #0284c7 !important;
-	box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.2) !important;
-	outline: none !important;
+	border-color: #0284c7;
+	box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.25);
+	outline: none;
+}
+
+html[data-theme="light"] tr:hover {
+	background-color: #f8fafc;
 }
 
 html[data-theme="dark"] tr:hover {
-	background-color: #161e2e !important;
-}
-
-/* Status Color Badges */
-html[data-theme="dark"] .bg-blue-50,
-html[data-theme="dark"] .bg-blue-50\/50 {
-	background-color: rgba(30, 58, 138, 0.4) !important;
-	border-color: #1e40af !important;
-	color: #93c5fd !important;
-}
-
-html[data-theme="dark"] .bg-emerald-50,
-html[data-theme="dark"] .bg-emerald-50\/50 {
-	background-color: rgba(6, 78, 59, 0.4) !important;
-	border-color: #065f46 !important;
-	color: #6ee7b7 !important;
-}
-
-html[data-theme="dark"] .bg-amber-50,
-html[data-theme="dark"] .bg-amber-50\/50 {
-	background-color: rgba(120, 53, 15, 0.4) !important;
-	border-color: #92400e !important;
-	color: #fcd34d !important;
-}
-
-html[data-theme="dark"] .bg-red-50,
-html[data-theme="dark"] .bg-red-50\/50 {
-	background-color: rgba(127, 29, 29, 0.4) !important;
-	border-color: #991b1b !important;
-	color: #fca5a5 !important;
-}
-
-html[data-theme="dark"] .bg-purple-50,
-html[data-theme="dark"] .bg-purple-50\/50 {
-	background-color: rgba(88, 28, 135, 0.4) !important;
-	border-color: #6b21a8 !important;
-	color: #d8b4fe !important;
+	background-color: #161e2e;
 }
 
 /* ==========================================================================
@@ -240,118 +215,109 @@ html[data-theme="dark"] .bg-purple-50\/50 {
    ========================================================================== */
 
 button,
-.btn,
-[role="button"] {
+.btn {
 	position: relative;
 	font-family: 'Outfit', 'Plus Jakarta Sans', system-ui, sans-serif;
 	font-weight: 600;
-	letter-spacing: 0.02em;
+	letter-spacing: 0.015em;
 	line-height: 1.4;
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
-	transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1),
-	            box-shadow 0.45s cubic-bezier(0.16, 1, 0.3, 1),
-	            background-color 0.4s ease,
-	            color 0.4s ease,
-	            border-color 0.4s ease,
-	            filter 0.4s ease,
-	            opacity 0.4s ease;
-	will-change: transform, box-shadow;
-	overflow: hidden;
+	transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+	            box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+	            background-color 0.2s ease,
+	            color 0.2s ease,
+	            border-color 0.2s ease;
 }
 
-/* Hover State - Smooth Floating Lift & Glow */
+/* Hover Lift Physics */
 button:hover:not(:disabled),
-.btn:hover:not(:disabled),
-[role="button"]:hover:not(:disabled) {
-	transform: translateY(-2px) scale(1.015);
-	box-shadow: 0 8px 25px -4px rgba(2, 132, 199, 0.25), 0 4px 10px -2px rgba(0, 0, 0, 0.08);
-	filter: brightness(1.04);
+.btn:hover:not(:disabled) {
+	transform: translateY(-1px);
 }
 
-/* Active/Click State - Tactile Press Feedback */
+/* Tactile Active Press */
 button:active:not(:disabled),
-.btn:active:not(:disabled),
-[role="button"]:active:not(:disabled) {
-	transform: translateY(0px) scale(0.97);
-	box-shadow: 0 2px 6px -1px rgba(2, 132, 199, 0.2);
-	transition: transform 0.12s ease, box-shadow 0.12s ease;
+.btn:active:not(:disabled) {
+	transform: translateY(0px) scale(0.975);
+	transition: transform 0.1s ease;
 }
 
-/* Hover Light Shimmer Effect for Buttons */
-button::after,
-.btn::after {
-	content: '';
-	position: absolute;
-	top: -50%;
-	left: -60%;
-	width: 50%;
-	height: 200%;
-	background: linear-gradient(
-		90deg,
-		rgba(255, 255, 255, 0) 0%,
-		rgba(255, 255, 255, 0.25) 50%,
-		rgba(255, 255, 255, 0) 100%
-	);
-	transform: rotate(25deg);
-	transition: none;
-	opacity: 0;
-	pointer-events: none;
-}
-
-button:hover:not(:disabled)::after,
-.btn:hover:not(:disabled)::after {
-	animation: btnShimmer 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-@keyframes btnShimmer {
-	0% {
-		left: -60%;
-		opacity: 0;
-	}
-	20% {
-		opacity: 1;
-	}
-	100% {
-		left: 140%;
-		opacity: 0;
-	}
-}
-
-/* Specialized Gradient Button Styling */
+/* Primary Gradient Buttons */
 .btn-gradient-primary {
 	background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%);
-	color: white;
+	color: #ffffff;
 	border: none;
+	box-shadow: 0 4px 14px -2px rgba(2, 132, 199, 0.35);
 }
 
 .btn-gradient-primary:hover:not(:disabled) {
 	background: linear-gradient(135deg, #0369a1 0%, #1d4ed8 100%);
-	box-shadow: 0 10px 25px -3px rgba(37, 99, 235, 0.45);
+	box-shadow: 0 8px 22px -3px rgba(37, 99, 235, 0.45);
 }
 
+/* Accent Gradient Buttons */
 .btn-gradient-accent {
 	background: linear-gradient(135deg, #06b6d4 0%, #0284c7 100%);
-	color: white;
+	color: #ffffff;
 	border: none;
+	box-shadow: 0 4px 14px -2px rgba(6, 182, 212, 0.35);
 }
 
 .btn-gradient-accent:hover:not(:disabled) {
 	background: linear-gradient(135deg, #0891b2 0%, #0369a1 100%);
-	box-shadow: 0 10px 25px -3px rgba(6, 182, 212, 0.45);
+	box-shadow: 0 8px 22px -3px rgba(6, 182, 212, 0.45);
 }
 
-/* Ghost and Flat Button Custom Hover Adjustments */
-.btn-ghost:hover:not(:disabled),
-button.bg-transparent:hover:not(:disabled) {
-	box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.06);
-	background-color: rgba(2, 132, 199, 0.08);
-}
+/* Base Component Layer Hover System */
+@layer components {
+	/* Ghost buttons default hover */
+	html[data-theme="light"] .btn-ghost:hover {
+		background-color: #f1f5f9;
+		color: #0f172a;
+	}
 
-html[data-theme="dark"] .btn-ghost:hover:not(:disabled),
-html[data-theme="dark"] button.bg-transparent:hover:not(:disabled) {
-	background-color: rgba(2, 132, 199, 0.18);
-	box-shadow: 0 4px 14px -2px rgba(0, 0, 0, 0.3);
+	html[data-theme="dark"] .btn-ghost:hover {
+		background-color: rgba(255, 255, 255, 0.08);
+		color: #f8fafc;
+	}
+
+	/* Outline buttons */
+	html[data-theme="light"] .btn-outline {
+		border-color: #cbd5e1;
+		color: #334155;
+	}
+
+	html[data-theme="light"] .btn-outline:hover {
+		background-color: #f8fafc;
+		border-color: #94a3b8;
+		color: #0f172a;
+	}
+
+	/* Status Badge & Soft Action Highlights in Light Mode */
+	html[data-theme="light"] .bg-sky-50 {
+		background-color: #f0f9ff;
+		border-color: #bae6fd;
+		color: #0369a1;
+	}
+
+	html[data-theme="light"] .bg-emerald-50 {
+		background-color: #ecfdf5;
+		border-color: #a7f3d0;
+		color: #047857;
+	}
+
+	html[data-theme="light"] .bg-amber-50 {
+		background-color: #fffbeb;
+		border-color: #fde68a;
+		color: #b45309;
+	}
+
+	html[data-theme="light"] .bg-rose-50 {
+		background-color: #fff1f2;
+		border-color: #fecdd3;
+		color: #be123c;
+	}
 }
 
 

@@ -11,7 +11,9 @@
 		User as UserIcon,
 		Building,
 		ShieldCheck,
-		ArrowRight
+		ArrowRight,
+		Sun,
+		Moon
 	} from '@lucide/svelte';
 
 	// Toggle modes: login, register, forgot-password, verify-email
@@ -157,23 +159,41 @@
 	}
 </script>
 
-<div class="min-h-screen grid grid-cols-1 lg:grid-cols-12 bg-slate-950 text-slate-100 relative overflow-hidden">
+<div class="min-h-screen grid grid-cols-1 lg:grid-cols-12 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 relative overflow-hidden transition-colors">
+	<!-- Top Right Theme Switcher -->
+	<div class="absolute top-5 right-5 z-30">
+		<button
+			onclick={() => globalStore.toggleTheme()}
+			class="btn btn-ghost btn-sm btn-circle text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800/80 transition-all duration-300 group shadow-xs"
+			title="Toggle Theme"
+			aria-label="Toggle Theme"
+		>
+			<div class="relative w-4 h-4 flex items-center justify-center transition-transform duration-500 ease-out group-hover:rotate-45">
+				{#if globalStore.theme === 'light'}
+					<Moon class="w-4 h-4 text-slate-700" />
+				{:else}
+					<Sun class="w-4 h-4 text-amber-400" />
+				{/if}
+			</div>
+		</button>
+	</div>
+
 	<!-- Background Mesh Blur Effects -->
 	<div class="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-sky-600/10 blur-[120px] pointer-events-none"></div>
 	<div class="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] rounded-full bg-blue-600/10 blur-[140px] pointer-events-none"></div>
 
 	<!-- Left Side: Authentication Form container -->
 	<div class="lg:col-span-7 flex items-center justify-center p-8 md:p-16 relative z-10">
-		<div class="w-full max-w-md space-y-8 glass-card border border-slate-800 p-8 rounded-3xl shadow-2xl">
+		<div class="w-full max-w-md space-y-8 glass-card border border-slate-200/80 dark:border-slate-800 p-8 rounded-3xl shadow-2xl bg-white/90 dark:bg-slate-900/90">
 			<!-- Header -->
 			<div class="text-left">
 				<div class="inline-flex p-3 bg-gradient-to-tr from-sky-600 to-cyan-500 text-white rounded-2xl mb-4 shadow-lg shadow-sky-500/20">
 					<ShieldCheck class="w-7 h-7" />
 				</div>
-				<h1 class="text-2xl md:text-3xl font-black tracking-tight text-white">
+				<h1 class="text-2xl md:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
 					ProcureSmart Portal
 				</h1>
-				<p class="text-slate-400 text-xs mt-1.5 font-medium">
+				<p class="text-slate-500 dark:text-slate-400 text-xs mt-1.5 font-medium">
 					Enter your enterprise credentials to access your procurement dashboard.
 				</p>
 			</div>
@@ -422,12 +442,12 @@
 	</div>
 
 	<!-- Right Side: Split Info & Demo accounts card deck -->
-	<div class="lg:col-span-5 bg-slate-900/50 border-l border-slate-800/80 p-8 md:p-12 flex flex-col justify-center relative z-10 backdrop-blur-md">
+	<div class="lg:col-span-5 bg-slate-100/70 dark:bg-slate-900/50 border-l border-slate-200/80 dark:border-slate-800/80 p-8 md:p-12 flex flex-col justify-center relative z-10 backdrop-blur-md">
 		<div class="max-w-md mx-auto space-y-6">
 			<div>
-				<h2 class="text-xs font-black tracking-widest uppercase text-sky-400">System Demo Suite</h2>
-				<h3 class="text-xl font-black text-white mt-1">One-Click Quick Access Profiles</h3>
-				<p class="text-xs text-slate-400 mt-1">
+				<h2 class="text-xs font-black tracking-widest uppercase text-sky-600 dark:text-sky-400">System Demo Suite</h2>
+				<h3 class="text-xl font-black text-slate-900 dark:text-white mt-1">One-Click Quick Access Profiles</h3>
+				<p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
 					Select any demo profile to log in instantly with tailored role permissions.
 				</p>
 			</div>
@@ -437,28 +457,28 @@
 					{@const deptName = db.getDepartments().find((/** @type {any} */ d) => d.id === acc.departmentId)?.name || 'External Division'}
 					<button
 						onclick={() => handleDemoLogin(acc.id)}
-						class="flex flex-col p-4 glass-card border border-slate-800 rounded-2xl text-left shadow-lg hover:shadow-2xl hover:border-sky-500/50 hover:-translate-y-1 transition-all duration-200 relative overflow-hidden group min-h-[120px]"
+						class="flex flex-col p-4 glass-card border border-slate-200/80 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 rounded-2xl text-left shadow-md hover:shadow-xl hover:border-sky-500/50 hover:-translate-y-1 transition-all duration-200 relative overflow-hidden group min-h-[120px]"
 					>
 						<!-- Decorative header stripe -->
 						<div class="absolute top-0 left-0 right-0 h-1.5 {acc.role === 'Employee' ? 'bg-emerald-500' : acc.role === 'Manager' ? 'bg-sky-500' : 'bg-amber-500'}"></div>
 						
 						<div class="flex items-start gap-3 mt-1.5 w-full">
-							<div class="w-10 h-10 rounded-full bg-slate-800 text-sky-400 flex items-center justify-center shrink-0 border border-slate-700">
+							<div class="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0 border border-slate-200 dark:border-slate-700">
 								<UserIcon class="w-5 h-5" />
 							</div>
 							<div class="overflow-hidden w-full">
-								<p class="font-extrabold text-xs text-slate-100 leading-snug group-hover:text-sky-400 transition-colors truncate">
+								<p class="font-extrabold text-xs text-slate-900 dark:text-slate-100 leading-snug group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors truncate">
 									{acc.fullName}
 								</p>
-								<p class="text-[9px] font-black uppercase tracking-wider mt-0.5 {acc.role === 'Employee' ? 'text-emerald-400' : acc.role === 'Manager' ? 'text-sky-400' : 'text-amber-400'}">
+								<p class="text-[9px] font-black uppercase tracking-wider mt-0.5 {acc.role === 'Employee' ? 'text-emerald-600 dark:text-emerald-400' : acc.role === 'Manager' ? 'text-sky-600 dark:text-sky-400' : 'text-amber-600 dark:text-amber-400'}">
 									{acc.role === 'Manager' ? 'Manager / Admin' : acc.role}
 								</p>
 							</div>
 						</div>
 						
-						<div class="mt-auto w-full pt-2 border-t border-slate-800/80 flex items-center justify-between text-[9px] text-slate-400 font-extrabold uppercase tracking-wider">
+						<div class="mt-auto w-full pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[9px] text-slate-400 dark:text-slate-400 font-extrabold uppercase tracking-wider">
 							<span class="truncate max-w-[90px]">{deptName}</span>
-							<span class="text-sky-400 opacity-0 group-hover:opacity-100 transition-opacity">Sign In →</span>
+							<span class="text-sky-600 dark:text-sky-400 opacity-0 group-hover:opacity-100 transition-opacity">Sign In →</span>
 						</div>
 					</button>
 				{/each}

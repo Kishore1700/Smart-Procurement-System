@@ -86,11 +86,22 @@ class GlobalStore {
 	}
 
 	toggleTheme() {
-		this.theme = this.theme === 'light' ? 'dark' : 'light';
-		if (typeof window !== 'undefined') {
-			localStorage.setItem('theme', this.theme);
+		const nextTheme = this.theme === 'light' ? 'dark' : 'light';
+
+		if (typeof document !== 'undefined' && 'startViewTransition' in document) {
+			// @ts-ignore
+			document.startViewTransition(() => {
+				this.theme = nextTheme;
+				this.applyTheme();
+			});
+		} else {
+			this.theme = nextTheme;
+			this.applyTheme();
 		}
-		this.applyTheme();
+
+		if (typeof window !== 'undefined') {
+			localStorage.setItem('theme', nextTheme);
+		}
 	}
 
 	applyTheme() {

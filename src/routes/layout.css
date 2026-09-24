@@ -146,11 +146,13 @@ html[data-theme="light"] .glass-card:hover {
 	box-shadow: 0 12px 30px -4px rgba(0, 0, 0, 0.08), 0 4px 12px -2px rgba(2, 132, 199, 0.06);
 }
 
-html[data-theme="dark"] .glass-card {
-	background: rgba(18, 24, 38, 0.75);
+html[data-theme="dark"] .glass-card,
+.dark .glass-card,
+.bg-slate-950 .glass-card {
+	background: rgba(15, 23, 42, 0.85);
 	backdrop-filter: blur(12px);
 	-webkit-backdrop-filter: blur(12px);
-	border: 1px solid rgba(255, 255, 255, 0.08);
+	border: 1px solid rgba(255, 255, 255, 0.1);
 	box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
 }
 

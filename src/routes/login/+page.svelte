@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { globalStore } from '$lib/stores/globalStore.svelte';
 	import { db } from '$lib/db/mockDb';
+	import { supabase } from '$lib/supabase';
 	import { z } from 'zod';
 	import {
 		Eye,
@@ -20,8 +21,9 @@
 	let mode = $state('login');
 	let showPassword = $state(false);
 
-	// Preloaded list of dummy accounts for testing
+	// Keep the existing demo area, but demo accounts cannot bypass Supabase Auth.
 	let demoAccounts = $derived(db.getUsers());
+	let authInitialized = $state(false);
 
 	// Form states
 	let email = $state('');
@@ -53,30 +55,71 @@
 		role: roleSchema
 	});
 
-	$effect(() => {
-		// If already logged in, redirect based on role
-		if (typeof window !== 'undefined' && globalStore.currentUser) {
-			if (globalStore.currentUser.role === 'Employee') {
-				goto('/purchase-requests');
-			} else {
-				goto('/dashboard');
+	function redirectForRole(user) {
+		if (user.role === 'Employee') {
+			goto('/purchase-requests');
+		} else {
+			goto('/dashboard');
+		}
+	}
+
+	async function getProfile(user) {
+		const { data, error } = await supabase
+			.from('profiles')
+			.select('id, username, full_name, role, department_id, vendor_id, status, avatar_url, created_at, updated_at')
+			.eq('id', user.id)
+			.single();
+
+		if (error) throw error;
+
+		return {
+			id: data.id,
+			username: data.username || user.email,
+			email: user.email,
+			role: data.role,
+			departmentId: data.department_id,
+			vendorId: data.vendor_id,
+			fullName: data.full_name || user.email,
+			status: data.status,
+			avatarUrl: data.avatar_url,
+			createdAt: data.created_at,
+			updatedAt: data.updated_at
+		};
+	}
+
+	async function initializeAuth() {
+		const { data, error } = await supabase.auth.getSession();
+		if (error) {
+			globalStore.showToast(error.message, 'error');
+		} else if (data.session) {
+			try {
+				const profile = await getProfile(data.session.user);
+				globalStore.login(profile);
+				redirectForRole(profile);
+			} catch (profileError) {
+				globalStore.clearSession();
+				globalStore.showToast(profileError.message || 'Unable to load your profile.', 'error');
 			}
+		} else {
+			globalStore.clearSession();
+		}
+		authInitialized = true;
+	}
+
+	$effect(() => {
+		if (typeof window !== 'undefined' && !authInitialized) {
+			void initializeAuth();
 		}
 	});
 
 	function handleDemoLogin(/** @type {string} */ uId) {
 		const target = demoAccounts.find((/** @type {any} */ u) => u.id === uId);
 		if (target) {
-			globalStore.login(target);
-			if (target.role === 'Employee') {
-				goto('/purchase-requests');
-			} else {
-				goto('/dashboard');
-			}
+			globalStore.showToast(`Demo account ${target.email} is not configured in Supabase. Create it there before signing in.`, 'info');
 		}
 	}
 
-	function handleLogin(/** @type {SubmitEvent} */ e) {
+	async function handleLogin(/** @type {SubmitEvent} */ e) {
 		e.preventDefault();
 		errors = {};
 		const result = loginSchema.safeParse({ email, password });
@@ -89,21 +132,22 @@
 			return;
 		}
 
-		// Look for matching user email
-		const matched = db.getUsers().find((/** @type {any} */ u) => u.email.toLowerCase() === email.toLowerCase());
-		if (matched) {
-			globalStore.login(matched);
-			if (matched.role === 'Employee') {
-				goto('/purchase-requests');
-			} else {
-				goto('/dashboard');
-			}
-		} else {
-			globalStore.showToast('Invalid email or password. Hint: Use one of the Demo Accounts on the right for quick access.', 'error');
+		const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+		if (error) {
+			globalStore.showToast(error.message, 'error');
+			return;
+		}
+
+		try {
+			const profile = await getProfile(data.user);
+			globalStore.login(profile);
+			redirectForRole(profile);
+		} catch (profileError) {
+			globalStore.showToast(profileError.message || 'Unable to load your profile.', 'error');
 		}
 	}
 
-	function handleRegister(/** @type {SubmitEvent} */ e) {
+	async function handleRegister(/** @type {SubmitEvent} */ e) {
 		e.preventDefault();
 		errors = {};
 		const result = registerSchema.safeParse({ username, email, fullName, password, role });
@@ -116,42 +160,54 @@
 			return;
 		}
 
-		// Register new user
-		const users = db.getUsers();
-		if (users.some((/** @type {any} */ u) => u.email.toLowerCase() === email.toLowerCase())) {
-			globalStore.showToast('Email already registered', 'error');
+		const avatarUrl = `https://api.dicebear.com/7.x/adventurer/svg?seed=${username}`;
+		const { data, error } = await supabase.auth.signUp({
+			email,
+			password,
+			options: {
+				data: {
+					username,
+					fullName,
+					role,
+					departmentId: role === 'Employee' || role === 'Manager' ? departmentId : null,
+					vendorId: role === 'Vendor' ? 'vendor-acme' : null,
+					avatarUrl
+				}
+			}
+		});
+
+		if (error) {
+			globalStore.showToast(error.message, 'error');
 			return;
 		}
 
-		const newUser = {
-			id: 'user-' + Math.random().toString(36).substring(2, 9),
-			username: username.toLowerCase(),
-			email,
-			role,
-			departmentId: role === 'Employee' || role === 'Manager' ? departmentId : null,
-			vendorId: role === 'Vendor' ? 'vendor-acme' : null,
-			fullName,
-			status: 'Active',
-			avatarUrl: `https://api.dicebear.com/7.x/adventurer/svg?seed=${username}`,
-			createdAt: new Date().toISOString()
-		};
+		if (!data.session) {
+			globalStore.showToast('Account created. Please verify your email, then sign in.', 'success');
+			mode = 'login';
+			return;
+		}
 
-		users.push(newUser);
-		db.saveUsers(users);
-		db.logAction(newUser.id, 'User Registered', `Created account with role: ${role}`);
-		globalStore.login(newUser);
-		globalStore.showToast(`Account created! Welcome, ${newUser.fullName}!`, 'success');
-		if (role === 'Employee') {
-			goto('/purchase-requests');
-		} else {
-			goto('/dashboard');
+		try {
+			const profile = await getProfile(data.user);
+			globalStore.login(profile);
+			globalStore.showToast(`Account created! Welcome, ${profile.fullName}!`, 'success');
+			redirectForRole(profile);
+		} catch (profileError) {
+			globalStore.showToast(profileError.message || 'Unable to load your profile.', 'error');
 		}
 	}
 
-	function handleForgot(/** @type {SubmitEvent} */ e) {
+	async function handleForgot(/** @type {SubmitEvent} */ e) {
 		e.preventDefault();
 		if (!email) {
 			globalStore.showToast('Please enter your email', 'error');
+			return;
+		}
+		const { error } = await supabase.auth.resetPasswordForEmail(email, {
+			redirectTo: `${window.location.origin}/login`
+		});
+		if (error) {
+			globalStore.showToast(error.message, 'error');
 			return;
 		}
 		globalStore.showToast('Password reset link sent to your email!', 'success');

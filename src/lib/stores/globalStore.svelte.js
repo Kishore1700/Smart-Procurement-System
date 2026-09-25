@@ -1,4 +1,5 @@
 import { db } from '../db/mockDb';
+import { supabase } from '../supabase';
 
 // Svelte 5 State-based Session and Global Store
 class GlobalStore {
@@ -55,15 +56,20 @@ class GlobalStore {
 		db.logAction(user.id, 'User Login', `Logged in from IP client session.`);
 	}
 
-	logout() {
+	clearSession() {
+		this.currentUser = null;
+		this.activeRole = 'Guest';
+		this.notifications = [];
+		if (typeof window !== 'undefined') {
+			localStorage.removeItem('current_user');
+		}
+	}
+
+	async logout() {
 		if (this.currentUser) {
 			db.logAction(this.currentUser.id, 'User Logout', `Logged out of session.`);
-			this.currentUser = null;
-			this.activeRole = 'Guest';
-			this.notifications = [];
-			if (typeof window !== 'undefined') {
-				localStorage.removeItem('current_user');
-			}
+			await supabase.auth.signOut();
+			this.clearSession();
 			this.showToast('Logged out successfully', 'info');
 		}
 	}

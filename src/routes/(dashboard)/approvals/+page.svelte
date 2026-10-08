@@ -1,4 +1,3 @@
-```svelte
 <script>
 	import { onMount } from 'svelte';
 	import { globalStore } from '$lib/stores/globalStore.svelte';
@@ -580,4 +579,3 @@
 		</div>
 	</div>
 </div>
-```

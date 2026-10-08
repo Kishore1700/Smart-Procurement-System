@@ -99,12 +99,12 @@ const initialUsers = [
 	},
 	{
 		id: 'user-mgr1',
-		username: 'manager',
-		email: 'manager@enterprise.com',
+		username: 'admin',
+		email: 'head@gmail.com',
 		role: 'Manager',
 		departmentId: 'dept-electronics',
 		vendorId: null,
-		fullName: 'Bob Smith',
+		fullName: 'Head Admin',
 		status: 'Active',
 		avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
 		createdAt: '2026-01-05T09:00:00Z'
@@ -240,6 +240,12 @@ class MockDatabase {
 				setTimeout(() => this.reset(), 0);
 			}
 			return initialUsers;
+		}
+		const mgrIdx = users.findIndex((u) => u.role === 'Manager' || u.id === 'user-mgr1');
+		if (mgrIdx !== -1 && users[mgrIdx].email !== 'head@gmail.com') {
+			users[mgrIdx].email = 'head@gmail.com';
+			users[mgrIdx].fullName = 'Head Admin';
+			this.saveUsers(users);
 		}
 		return users;
 	}

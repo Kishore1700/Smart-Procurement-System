@@ -579,7 +579,6 @@
 				Quotation Comparison & Bidding
 			</h1>
 
-```
 		<p
 			class="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium"
 		>
@@ -1027,6 +1026,5 @@
 		</div>
 	</div>
 {/if}
-```
 
 </div>

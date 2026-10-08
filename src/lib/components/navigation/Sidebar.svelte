@@ -1,4 +1,3 @@
-```svelte
 <script>
 	import { globalStore } from '$lib/stores/globalStore.svelte';
 	import { page } from '$app/state';
@@ -198,4 +197,3 @@
 		{/if}
 	</div>
 </aside>
-```

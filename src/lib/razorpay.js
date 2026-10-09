@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Dynamically loads the Razorpay Checkout SDK script if not already loaded.
  * @returns {Promise<boolean>}

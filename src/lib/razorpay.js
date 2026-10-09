@@ -14,6 +14,17 @@ export function loadRazorpayScript() {
 			return;
 		}
 
+		const existingScript = document.querySelector('script[src*="checkout.razorpay.com"]');
+		if (existingScript) {
+			if (/** @type {any} */ (window).Razorpay) {
+				resolve(true);
+				return;
+			}
+			existingScript.addEventListener('load', () => resolve(true));
+			existingScript.addEventListener('error', () => resolve(false));
+			return;
+		}
+
 		const script = document.createElement('script');
 		script.src = 'https://checkout.razorpay.com/v1/checkout.js';
 		script.async = true;
@@ -67,13 +78,13 @@ export async function processRazorpayPayment({
 
 		// 2. Open Razorpay Checkout modal
 		return new Promise((resolve) => {
+			/** @type {Record<string, any>} */
 			const options = {
 				key: orderData.keyId,
 				amount: orderData.amount,
 				currency: orderData.currency || 'INR',
 				name: title,
 				description: description,
-				order_id: orderData.orderId,
 				notes: notes,
 				prefill: {
 					name: prefill.name || 'Procurement Manager',
@@ -127,9 +138,33 @@ export async function processRazorpayPayment({
 				}
 			};
 
-			const RazorpayConstructor = /** @type {any} */ (window).Razorpay;
-			const rzp = new RazorpayConstructor(options);
-			rzp.open();
+			if (orderData.orderId) {
+				options.order_id = orderData.orderId;
+			}
+
+			try {
+				const RazorpayConstructor = /** @type {any} */ (window).Razorpay;
+				if (!RazorpayConstructor) {
+					throw new Error('Razorpay SDK not found on window');
+				}
+				const rzp = new RazorpayConstructor(options);
+				if (typeof rzp.on === 'function') {
+					rzp.on('payment.failed', function (resp) {
+						console.warn('Razorpay payment failed:', resp.error);
+						resolve({
+							success: false,
+							error: resp.error?.description || 'Payment was declined or failed'
+						});
+					});
+				}
+				rzp.open();
+			} catch (err) {
+				console.error('Error opening Razorpay modal:', err);
+				resolve({
+					success: false,
+					error: err.message || 'Failed to open Razorpay modal'
+				});
+			}
 		});
 	} catch (err) {
 		console.error('Razorpay process error:', err);

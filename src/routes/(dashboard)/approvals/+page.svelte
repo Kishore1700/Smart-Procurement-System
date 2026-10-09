@@ -48,7 +48,7 @@
 	import { db } from '$lib/db/mockDb';
 
 	async function loadPendingApprovals() {
-		let fetchedPRs: any[] = [];
+		let fetchedPRs = [];
 		try {
 			const { data, error } = await supabase
 				.from('purchase_requests')
@@ -144,18 +144,19 @@
 	}
 
 	async function handleAction(/** @type {string} */ status) {
-		if (!selectedRequest || !currentUser || !procurementUser) return;
+		if (!selectedRequest || !currentUser) return;
 
 		if (status !== 'Approved' && status !== 'Rejected') return;
 
+		const approverUser = procurementUser || currentUser;
 		const approvalId =
 			'app-' + Math.random().toString(36).substring(2, 9);
 
 		const approvalRecord = {
 			id: approvalId,
 			request_id: selectedRequest.id,
-			approver_id: procurementUser.id,
-			approver_role: procurementUser.role,
+			approver_id: approverUser.id,
+			approver_role: approverUser.role || role,
 			status,
 			comments:
 				approvalComments ||
@@ -197,7 +198,7 @@
 		db.addNotification(
 			selectedRequest.requesterId,
 			`Purchase Request ${status}`,
-			`Your request "${selectedRequest.title}" was ${status.toLowerCase()} by ${procurementUser.full_name || 'Manager'}.`,
+			`Your request "${selectedRequest.title}" was ${status.toLowerCase()} by ${approverUser.full_name || approverUser.fullName || 'Manager'}.`,
 			status === 'Approved' ? 'Success' : 'Alert'
 		);
 
@@ -217,11 +218,8 @@
 
 	onMount(async () => {
 		await loadCurrentProcurementUser();
-
-		if (role === 'Manager') {
-			await loadPendingApprovals();
-			await loadSelectedRequestDetails();
-		}
+		await loadPendingApprovals();
+		await loadSelectedRequestDetails();
 	});
 
 	$effect(() => {

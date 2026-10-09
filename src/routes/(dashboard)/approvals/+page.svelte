@@ -20,13 +20,13 @@
 	let selectedRequestId = $state(/** @type {string | null} */ (null));
 	let approvalComments = $state('');
 
-	let pendingApprovals = $state([]);
-	let selectedRequest = $state(null);
-	let requester = $state(null);
-	let department = $state(null);
-	let approvalHistory = $state([]);
+	let pendingApprovals = $state(/** @type {any[]} */ ([]));
+	let selectedRequest = $state(/** @type {any} */ (null));
+	let requester = $state(/** @type {any} */ (null));
+	let department = $state(/** @type {any} */ (null));
+	let approvalHistory = $state(/** @type {any[]} */ ([]));
 
-	let procurementUser = $state(null);
+	let procurementUser = $state(/** @type {any} */ (null));
 
 	async function loadCurrentProcurementUser() {
 		if (!globalStore.currentUser?.email) return;
@@ -48,7 +48,7 @@
 	import { db } from '$lib/db/mockDb';
 
 	async function loadPendingApprovals() {
-		let fetchedPRs = [];
+		let fetchedPRs: any[] = [];
 		try {
 			const { data, error } = await supabase
 				.from('purchase_requests')
@@ -60,7 +60,7 @@
 				.order('created_at', { ascending: false });
 
 			if (!error && data && data.length > 0) {
-				fetchedPRs = data.map((pr) => ({
+				fetchedPRs = data.map((/** @type {any} */ pr) => ({
 					...pr,
 					requesterId: pr.requester_id,
 					departmentId: pr.department_id,
@@ -69,7 +69,7 @@
 					budgetStatus: pr.budget_status,
 					createdAt: pr.created_at,
 					updatedAt: pr.updated_at,
-					items: (pr.purchase_request_items || []).map((item) => ({
+					items: (pr.purchase_request_items || []).map((/** @type {any} */ item) => ({
 						...item,
 						itemName: item.item_name,
 						unitPrice: Number(item.unit_price),
@@ -83,8 +83,8 @@
 		}
 
 		if (fetchedPRs.length === 0) {
-			const localPRs = db.getPurchaseRequests().filter((pr) => pr.status === 'Pending Approval');
-			fetchedPRs = localPRs.map((pr) => ({
+			const localPRs = db.getPurchaseRequests().filter((/** @type {any} */ pr) => pr.status === 'Pending Approval');
+			fetchedPRs = localPRs.map((/** @type {any} */ pr) => ({
 				...pr,
 				requesterId: pr.requesterId || pr.requester_id,
 				departmentId: pr.departmentId || pr.department_id,
@@ -102,7 +102,7 @@
 		if (
 			pendingApprovals.length > 0 &&
 			(!selectedRequestId ||
-				!pendingApprovals.some((p) => p.id === selectedRequestId))
+				!pendingApprovals.some((/** @type {any} */ p) => p.id === selectedRequestId))
 		) {
 			selectedRequestId = pendingApprovals[0].id;
 		}
@@ -121,7 +121,7 @@
 			return;
 		}
 
-		const request = pendingApprovals.find((pr) => pr.id === selectedRequestId);
+		const request = pendingApprovals.find((/** @type {any} */ pr) => pr.id === selectedRequestId);
 
 		if (!request) {
 			selectedRequest = null;
@@ -134,16 +134,16 @@
 		selectedRequest = request;
 
 		const allUsers = db.getUsers();
-		const matchedUser = allUsers.find((u) => u.id === request.requesterId);
+		const matchedUser = allUsers.find((/** @type {any} */ u) => u.id === request.requesterId);
 		requester = matchedUser || { full_name: 'Employee', email: 'employee@gmail.com', role: 'Employee' };
 
 		const allDepts = db.getDepartments();
-		const matchedDept = allDepts.find((d) => d.id === request.departmentId);
+		const matchedDept = allDepts.find((/** @type {any} */ d) => d.id === request.departmentId);
 		department = matchedDept || { name: 'Electronics', remainingBudget: 500000 };
 		approvalHistory = [];
 	}
 
-	async function handleAction(status) {
+	async function handleAction(/** @type {string} */ status) {
 		if (!selectedRequest || !currentUser || !procurementUser) return;
 
 		if (status !== 'Approved' && status !== 'Rejected') return;
@@ -186,7 +186,7 @@
 
 		// Local DB update
 		const localPRs = db.getPurchaseRequests();
-		const prIdx = localPRs.findIndex((p) => p.id === selectedRequest.id);
+		const prIdx = localPRs.findIndex((/** @type {any} */ p) => p.id === selectedRequest.id);
 		if (prIdx !== -1) {
 			localPRs[prIdx].status = status;
 			localPRs[prIdx].currentApproverId = null;

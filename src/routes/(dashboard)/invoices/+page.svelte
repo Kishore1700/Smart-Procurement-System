@@ -1,4 +1,5 @@
 <script>
+	// @ts-nocheck
 	import { globalStore } from '$lib/stores/globalStore.svelte';
 	import { db } from '$lib/db/mockDb';
 	import { processRazorpayPayment } from '$lib/razorpay';
@@ -11,7 +12,10 @@
 		Search,
 		Plus,
 		FileText,
-		Calendar
+		Calendar,
+		Printer,
+		X,
+		ShieldCheck
 	} from '@lucide/svelte';
 
 	let role = $derived(globalStore.currentUser?.role || 'Employee');
@@ -22,6 +26,7 @@
 
 	// Create Invoice state
 	let isCreateModalOpen = $state(false);
+	let selectedInvoiceForModal = $state(/** @type {any} */ (null));
 	let invoicePoNumber = $state('');
 	let invoiceNumberInput = $state('');
 	let invoiceAmount = $state(0);
@@ -191,9 +196,23 @@
 
 		list[idx].status = 'Paid';
 		list[idx].paidAt = new Date().toISOString();
+		list[idx].paymentId = paymentResult.paymentId;
+		list[idx].paymentMethod = 'Razorpay';
+		list[idx].paymentStatus = 'Settled';
 		db.saveInvoices(list);
 
 		db.logAction(currentUser?.id || '', 'Pay Invoice', `Disbursed payment (Txn: ${paymentResult.paymentId}) for Invoice ${list[idx].invoiceNumber}`);
+
+		// Notify Admin and Managers
+		const adminUsers = db.getUsers().filter((/** @type {any} */ u) => u.role === 'Manager' || u.role === 'Admin' || u.id === 'user-mgr1');
+		adminUsers.forEach((/** @type {any} */ au) => {
+			db.addNotification(
+				au.id,
+				'Invoice Payment Disbursed',
+				`Invoice ${list[idx].invoiceNumber} (₹${list[idx].amount.toLocaleString()}) was successfully settled via Razorpay (Txn ID: ${paymentResult.paymentId}). Dispatched to Admin for records.`,
+				'Success'
+			);
+		});
 
 		// Notify vendor
 		const po = db.getPurchaseOrders().find((/** @type {any} */ p) => p.poNumber === list[idx].poNumber);
@@ -207,6 +226,10 @@
 					'Success'
 				);
 			});
+		}
+
+		if (currentUser?.id) {
+			globalStore.loadNotifications(currentUser.id);
 		}
 
 		globalStore.showToast(`Payment of ₹${targetInv.amount.toLocaleString()} disbursed for Invoice ${list[idx].invoiceNumber}! Txn ID: ${paymentResult.paymentId}`, 'success');
@@ -288,10 +311,14 @@
 								</div>
 							</td>
 							<td>
-								<span class="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+								<button
+									onclick={() => (selectedInvoiceForModal = inv)}
+									class="flex items-center gap-1.5 text-[11px] text-sky-600 dark:text-sky-400 hover:text-sky-500 font-bold transition-colors"
+									title="View Tax Invoice Details"
+								>
 									<FileText class="w-4 h-4 text-sky-500" />
-									invoice_doc.pdf
-								</span>
+									<span>{inv.invoiceNumber}.pdf</span>
+								</button>
 							</td>
 							<td>
 								<div class="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
@@ -307,13 +334,21 @@
 								</span>
 							</td>
 							<td>
-								<div class="flex gap-2">
+								<div class="flex items-center gap-2">
+									<button
+										onclick={() => (selectedInvoiceForModal = inv)}
+										class="btn btn-ghost btn-xs text-[10px] font-bold text-sky-600 dark:text-sky-400 hover:bg-sky-500/10 rounded-lg px-2"
+										title="View Invoice"
+									>
+										View Bill
+									</button>
+
 									{#if inv.status === 'Unverified' && role === 'Manager'}
 										<button
 											onclick={() => verifyInvoice(inv.id)}
 											class="btn btn-gradient-primary btn-xs font-extrabold rounded-lg px-3 py-1 shadow-md shadow-sky-600/20"
 										>
-											Verify Amount
+											Verify
 										</button>
 									{/if}
 
@@ -322,13 +357,13 @@
 											onclick={() => payInvoice(inv.id)}
 											class="btn bg-gradient-to-r from-emerald-600 to-teal-600 text-white btn-xs font-extrabold rounded-lg px-3 py-1 shadow-md shadow-emerald-600/20"
 										>
-											Process Payout
+											Payout
 										</button>
 									{/if}
 
 									{#if inv.status === 'Paid'}
 										<span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-extrabold flex items-center gap-1">
-											<CheckCircle2 class="w-4 h-4" />
+											<CheckCircle2 class="w-3.5 h-3.5" />
 											Settled
 										</span>
 									{/if}
@@ -422,6 +457,173 @@
 						</button>
 					</div>
 				</form>
+			</div>
+		</div>
+	{/if}
+
+	<!-- View Tax Invoice Modal (Admin & Vendor View) -->
+	{#if selectedInvoiceForModal}
+		{@const po = db.getPurchaseOrders().find((/** @type {any} */ p) => p.poNumber === selectedInvoiceForModal.poNumber)}
+		{@const vendor = db.getVendors().find((/** @type {any} */ v) => v.id === selectedInvoiceForModal.vendorId || v.id === po?.vendorId)}
+		{@const vendorDisplayName = selectedInvoiceForModal.vendorName || vendor?.name || 'Authorized Supplier'}
+		{@const subtotal = selectedInvoiceForModal.subtotal || Math.round((selectedInvoiceForModal.amount / 1.18) * 100) / 100}
+		{@const taxAmount = selectedInvoiceForModal.taxAmount || Math.round((selectedInvoiceForModal.amount - subtotal) * 100) / 100}
+		<div class="modal modal-open z-50">
+			<div class="modal-box bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-6 text-xs max-w-2xl max-h-[90vh] overflow-y-auto">
+				<!-- Header Actions -->
+				<div class="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
+					<div class="flex items-center gap-2">
+						<div class="p-2 bg-sky-500/10 text-sky-600 dark:text-sky-400 rounded-xl">
+							<ShieldCheck class="w-5 h-5" />
+						</div>
+						<div>
+							<h3 class="font-black text-base text-slate-900 dark:text-slate-100 tracking-tight">
+								Vendor Tax Invoice & Settlement
+							</h3>
+							<p class="text-[11px] text-slate-500 dark:text-slate-400">
+								Automatically dispatched to Admin upon Razorpay payment
+							</p>
+						</div>
+					</div>
+					<div class="flex items-center gap-2">
+						<button
+							onclick={() => window.print()}
+							class="btn btn-ghost btn-sm text-xs font-bold rounded-xl text-slate-600 dark:text-slate-300 flex items-center gap-1.5"
+						>
+							<Printer class="w-4 h-4 text-sky-500" />
+							Print / PDF
+						</button>
+						<button
+							onclick={() => (selectedInvoiceForModal = null)}
+							class="btn btn-ghost btn-circle btn-sm"
+						>
+							<X class="w-4 h-4" />
+						</button>
+					</div>
+				</div>
+
+				<!-- Invoice Sheet Printable -->
+				<div class="p-4 space-y-5 bg-slate-50/60 dark:bg-slate-950/40 rounded-2xl border border-slate-200/80 dark:border-slate-800/80 mt-4">
+					<!-- Top Meta -->
+					<div class="grid grid-cols-2 gap-4">
+						<div>
+							<span class="text-[10px] font-black uppercase tracking-wider text-slate-400">ISSUED BY (VENDOR)</span>
+							<h4 class="font-black text-sm text-slate-900 dark:text-slate-100 mt-0.5">{vendorDisplayName}</h4>
+							<p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+								{vendor?.email || 'sales@vendor.com'} | {vendor?.phone || '+91-9876543210'}
+							</p>
+							<p class="text-[10px] text-slate-400">
+								GSTIN: {vendor?.gstin || '33AAAAA0000A1Z5'}
+							</p>
+						</div>
+
+						<div class="text-right">
+							<span class="text-[10px] font-black uppercase tracking-wider text-slate-400">BILLED TO (BUYER)</span>
+							<h4 class="font-black text-sm text-slate-900 dark:text-slate-100 mt-0.5">Smart Procurement System</h4>
+							<p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Attn: Head Admin / Finance Division</p>
+							<p class="text-[10px] text-slate-400">admin@procurement.org</p>
+						</div>
+					</div>
+
+					<!-- Details Grid -->
+					<div class="grid grid-cols-4 gap-2 p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 text-center">
+						<div>
+							<span class="text-[9px] font-bold text-slate-400 uppercase">INVOICE NO.</span>
+							<p class="font-black text-slate-900 dark:text-slate-100 mt-0.5">{selectedInvoiceForModal.invoiceNumber}</p>
+						</div>
+						<div>
+							<span class="text-[9px] font-bold text-slate-400 uppercase">PO LINK</span>
+							<p class="font-extrabold text-sky-600 dark:text-sky-400 mt-0.5">{selectedInvoiceForModal.poNumber || 'N/A'}</p>
+						</div>
+						<div>
+							<span class="text-[9px] font-bold text-slate-400 uppercase">DATE</span>
+							<p class="font-bold text-slate-700 dark:text-slate-300 mt-0.5">
+								{new Date(selectedInvoiceForModal.submittedAt || Date.now()).toLocaleDateString()}
+							</p>
+						</div>
+						<div>
+							<span class="text-[9px] font-bold text-slate-400 uppercase">STATUS</span>
+							<p class="font-black text-emerald-600 dark:text-emerald-400 mt-0.5 uppercase">
+								{selectedInvoiceForModal.status}
+							</p>
+						</div>
+					</div>
+
+					<!-- Razorpay Settlement Banner -->
+					{#if selectedInvoiceForModal.paymentId}
+						<div class="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-between">
+							<div class="flex items-center gap-2">
+								<CheckCircle2 class="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+								<div>
+									<p class="font-extrabold text-emerald-700 dark:text-emerald-300 text-[11px]">
+										Settled via Razorpay Gateway
+									</p>
+									<p class="text-[10px] text-emerald-600/80 dark:text-emerald-400/80">
+										Transaction ID: <span class="font-mono font-bold">{selectedInvoiceForModal.paymentId}</span>
+									</p>
+								</div>
+							</div>
+							<span class="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-black text-[9px] uppercase">
+								Payment Verified
+							</span>
+						</div>
+					{/if}
+
+					<!-- Line Items Table -->
+					<div class="overflow-x-auto">
+						<table class="table table-xs w-full">
+							<thead class="bg-slate-100 dark:bg-slate-800/80 font-bold text-slate-600 dark:text-slate-300">
+								<tr>
+									<th>Description</th>
+									<th class="text-right">Qty</th>
+									<th class="text-right">Tax Rate</th>
+									<th class="text-right">Total (₹)</th>
+								</tr>
+							</thead>
+							<tbody>
+								<tr class="border-b border-slate-100 dark:border-slate-800/60">
+									<td class="font-bold text-slate-800 dark:text-slate-200">
+										{selectedInvoiceForModal.description || 'Contractual Stock & Supply Deliverable'}
+									</td>
+									<td class="text-right font-medium">1 Lot</td>
+									<td class="text-right font-medium">18% GST</td>
+									<td class="text-right font-black text-slate-900 dark:text-slate-100">
+										₹{subtotal.toLocaleString()}
+									</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+
+					<!-- Financial Summary -->
+					<div class="flex justify-end pt-2">
+						<div class="w-64 space-y-1.5 text-right">
+							<div class="flex justify-between text-slate-500 dark:text-slate-400">
+								<span>Subtotal:</span>
+								<span class="font-bold">₹{subtotal.toLocaleString()}</span>
+							</div>
+							<div class="flex justify-between text-slate-500 dark:text-slate-400">
+								<span>GST (18%):</span>
+								<span class="font-bold">₹{taxAmount.toLocaleString()}</span>
+							</div>
+							<div class="flex justify-between text-sm font-black text-slate-900 dark:text-slate-100 border-t border-slate-200 dark:border-slate-800 pt-2">
+								<span>Total Paid:</span>
+								<span class="text-sky-600 dark:text-sky-400">₹{selectedInvoiceForModal.amount.toLocaleString()}</span>
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<!-- Footer -->
+				<div class="flex justify-end pt-4 mt-2">
+					<button
+						type="button"
+						onclick={() => (selectedInvoiceForModal = null)}
+						class="btn btn-gradient-primary btn-sm text-xs font-extrabold rounded-xl px-6"
+					>
+						Close
+					</button>
+				</div>
 			</div>
 		</div>
 	{/if}

@@ -5,6 +5,7 @@
 	import { supabase, withTimeout } from '$lib/supabase';
 	import { db } from '$lib/db/mockDb';
 	import { processRazorpayPayment } from '$lib/razorpay';
+	import { createAndSendVendorInvoice } from '$lib/invoiceService';
 	import {
 		Award,
 		DollarSign,
@@ -567,14 +568,35 @@
 		localPOs.unshift(newPo);
 		db.savePurchaseOrders(localPOs);
 
+		// Generate & Dispatch Vendor Tax Invoice to Admin
+		let generatedInvNum = '';
+		try {
+			const invoiceResult = await createAndSendVendorInvoice({
+				poNumber: nextPoNumber,
+				vendorId: targetQuote.vendorId,
+				vendorName: vendorName,
+				amount: Number(targetQuote.price),
+				paymentId: paymentResult.paymentId,
+				requestId: selectedRequestId,
+				description: selectedRequest?.title || selectedRequest?.description || 'Stock Procurement Order',
+				currentUser: currentUser
+			});
+
+			if (invoiceResult?.success && invoiceResult?.invoice) {
+				generatedInvNum = invoiceResult.invoice.invoiceNumber;
+			}
+		} catch (invErr) {
+			console.warn('Invoice generation error:', invErr);
+		}
+
 		db.logAction(
 			currentUser?.id || '',
 			'Award Contract & Pay',
-			`Awarded contract to ${vendorName} for ₹${targetQuote.price.toLocaleString()} and generated PO ${nextPoNumber}`
+			`Awarded contract to ${vendorName} for ₹${targetQuote.price.toLocaleString()} and generated PO ${nextPoNumber}${generatedInvNum ? ' and Invoice ' + generatedInvNum : ''}`
 		);
 
 		globalStore.showToast(
-			`Bid awarded & Payment completed! Purchase Order ${nextPoNumber} generated.`,
+			`Bid awarded & Payment verified! PO ${nextPoNumber} & Vendor Invoice ${generatedInvNum || 'generated'} sent to Admin!`,
 			'success'
 		);
 

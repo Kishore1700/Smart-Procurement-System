@@ -5,6 +5,7 @@
 	import { db } from '$lib/db/mockDb';
 	import { supabase, withTimeout } from '$lib/supabase';
 	import { processRazorpayPayment } from '$lib/razorpay';
+	import { createAndSendVendorInvoice } from '$lib/invoiceService';
 	import { CreditCard, Printer } from '@lucide/svelte';
 
 	let role = $derived(globalStore.currentUser?.role || 'Employee');
@@ -203,6 +204,7 @@
 
 			globalStore.showToast(`Payment Verified! Txn ID: ${paymentResult.paymentId}`, 'success');
 			newStatus = 'Issued';
+			var issuedPaymentId = paymentResult.paymentId;
 		} else {
 			return;
 		}
@@ -299,30 +301,16 @@
 				deliveries.push(newDelivery);
 				db.saveDeliveries(deliveries);
 
-				const invoices = db.getInvoices();
-
-				const newInvoice = {
-					id:
-						'inv-' +
-						Math.random().toString(36).substring(2, 8),
+				// Generate automated vendor tax invoice and dispatch to admin
+				await createAndSendVendorInvoice({
 					poNumber: po.poNumber,
-					invoiceNumber:
-						'INV-ROUGH-' +
-						Math.random()
-							.toString(36)
-							.substring(2, 8)
-							.toUpperCase(),
+					vendorId: po.vendorId,
 					amount: po.totalAmount,
-					attachmentUrl: null,
-					status: 'Unverified',
-					submittedAt: new Date().toISOString(),
-					verifiedAt: null,
-					verifiedById: null,
-					paidAt: null
-				};
-
-				invoices.push(newInvoice);
-				db.saveInvoices(invoices);
+					paymentId: issuedPaymentId || `pay_${Date.now()}`,
+					requestId: po.requestId,
+					description: `Purchase order supply for ${po.poNumber}`,
+					currentUser: currentUser
+				});
 			} catch (error) {
 				console.warn(
 					'Delivery/invoice creation failed:',

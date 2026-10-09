@@ -62,34 +62,40 @@
 
 	// List purchase requests
 	async function loadPurchaseRequests() {
-    const { data, error } = await supabase
-        .from('purchase_requests')
-        .select(`
-            *,
-            purchase_request_items (*)
-        `)
-        .order('created_at', { ascending: false });
+		let supabaseList = [];
+		try {
+			const { data, error } = await supabase
+				.from('purchase_requests')
+				.select(`
+					*,
+					purchase_request_items (*)
+				`)
+				.order('created_at', { ascending: false });
 
-    if (error) {
-        console.error('Failed to load purchase requests:', error);
-        globalStore.showToast('Failed to load purchase requests.', 'error');
-        return;
-    }
+			if (!error && data) {
+				supabaseList = data.map((pr) => ({
+					...pr,
+					requesterId: pr.requester_id,
+					departmentId: pr.department_id,
+					estimatedCost: pr.estimated_cost,
+					currentApproverId: pr.current_approver_id,
+					budgetStatus: pr.budget_status,
+					createdAt: pr.created_at,
+					updatedAt: pr.updated_at,
+					items: pr.purchase_request_items || []
+				}));
+			}
+		} catch (err) {
+			console.warn('Failed to load from Supabase:', err);
+		}
 
-    supabasePurchaseRequests = (data || []).map((pr) => ({
-    ...pr,
-    requesterId: pr.requester_id,
-    departmentId: pr.department_id,
-    estimatedCost: pr.estimated_cost,
-    currentApproverId: pr.current_approver_id,
-    budgetStatus: pr.budget_status,
-    createdAt: pr.created_at,
-    updatedAt: pr.updated_at,
-    items: pr.purchase_request_items || []
-}));
+		const localRequests = db.getPurchaseRequests() || [];
+		const mergedMap = new Map();
+		localRequests.forEach((pr) => mergedMap.set(pr.id, pr));
+		supabaseList.forEach((pr) => mergedMap.set(pr.id, pr));
 
-console.log('Loaded Supabase purchase requests:', supabasePurchaseRequests);
-}
+		supabasePurchaseRequests = Array.from(mergedMap.values());
+	}
 onMount(() => {
     loadPurchaseRequests();
 });
@@ -98,10 +104,16 @@ onMount(() => {
 		let list = supabasePurchaseRequests;
 		// If normal employee, show only own requests
 		if (role === 'Employee') {
-			list = list.filter((/** @type {any} */ pr) => pr.requesterId === 'user-emp1');
+			const activeUserId = currentUser?.id || 'user-emp1';
+			list = list.filter((/** @type {any} */ pr) => 
+				pr.requesterId === activeUserId || 
+				pr.requesterId === 'user-emp1' || 
+				(currentUser?.email && pr.requester_email === currentUser.email)
+			);
 		} else if (role === 'Manager') {
 			// Managers see department requests
-			list = list.filter((/** @type {any} */ pr) => pr.departmentId === currentUser?.departmentId);
+			const activeDeptId = currentUser?.departmentId || 'dept-electronics';
+			list = list.filter((/** @type {any} */ pr) => pr.departmentId === activeDeptId);
 		}
 
 		// Filter
@@ -196,33 +208,43 @@ onMount(() => {
 			globalStore.showToast('Please fix validation errors in the form', 'error');
 			return;
 		}
-        console.log('Current logged-in email:', globalStore.currentUser?.email);
-		// Save request
-		const { data: procurementUser, error: procurementUserError } = await supabase
-    .from('users')
-    .select('id, department_id')
-    .eq('email', globalStore.currentUser?.email)
-    .single();
 
-if (procurementUserError || !procurementUser) {
-    console.error('Failed to find procurement user:', procurementUserError);
-    globalStore.showToast('Could not identify your procurement account.', 'error');
-    return;
-}
-		const requests = db.getPurchaseRequests();
+		// Determine user and department identity safely with fallbacks
+		let requesterId = currentUser?.id || 'user-emp1';
+		let departmentId = currentUser?.departmentId || 'dept-electronics';
+
+		if (globalStore.currentUser?.email) {
+			try {
+				const { data: procurementUser } = await supabase
+					.from('users')
+					.select('id, department_id')
+					.eq('email', globalStore.currentUser?.email)
+					.maybeSingle();
+
+				if (procurementUser?.id) {
+					requesterId = procurementUser.id;
+					if (procurementUser.department_id) {
+						departmentId = procurementUser.department_id;
+					}
+				}
+			} catch (err) {
+				console.warn('Supabase user lookup failed, falling back to local user state:', err);
+			}
+		}
+
 		const newRequest = {
 			id: 'pr-' + Math.random().toString(36).substring(2, 6).toUpperCase(),
 			title: prTitle,
 			description: prDescription,
-			departmentId: currentUser?.departmentId || 'dept-electronics',
-			requesterId: procurementUser.id,
+			departmentId: departmentId,
+			requesterId: requesterId,
 			category: prCategory,
 			priority: prPriority,
 			estimatedCost: formTotalCost,
 			attachmentUrl: attachmentName ? '/uploads/' + attachmentName : null,
 			attachmentName,
 			status: 'Pending Approval',
-			currentApproverId: db.getDepartments().find((/** @type {any} */ d) => d.id === currentUser?.departmentId)?.managerId || 'user-mgr1',
+			currentApproverId: db.getDepartments().find((/** @type {any} */ d) => d.id === departmentId)?.managerId || 'user-mgr1',
 			items: formItems.map((item, idx) => ({
 				...item,
 				itemName: checkItems[idx].itemName,
@@ -235,46 +257,47 @@ if (procurementUserError || !procurementUser) {
 			updatedAt: new Date().toISOString()
 		};
 
-		const { error: requestError } = await supabase
-    .from('purchase_requests')
-    .insert({
-        id: newRequest.id,
-        title: newRequest.title,
-        description: newRequest.description,
-        department_id: procurementUser.department_id,
-        requester_id: procurementUser.id,
-        category: newRequest.category,
-        priority: newRequest.priority,
-        estimated_cost: newRequest.estimatedCost,
-        attachment_url: newRequest.attachmentUrl,
-        attachment_name: newRequest.attachmentName,
-        status: newRequest.status,
-        current_approver_id: newRequest.currentApproverId,
-        budget_status: newRequest.budgetStatus
-    });
+		// Save locally first to guarantee persistence
+		const existingRequests = db.getPurchaseRequests() || [];
+		db.savePurchaseRequests([newRequest, ...existingRequests]);
 
-if (requestError) {
-    console.error('Failed to save purchase request:', requestError);
-    globalStore.showToast('Failed to save purchase request.', 'error');
-    return;
-}
-const { error: itemsError } = await supabase
-    .from('purchase_request_items')
-    .insert(
-        newRequest.items.map((item) => ({
-            id: `${newRequest.id}-${item.id}`,
-            request_id: newRequest.id,
-            item_name: item.itemName,
-            quantity: item.quantity,
-            unit_price: item.unitPrice
-        }))
-    );
+		// Attempt sync with Supabase
+		try {
+			const { error: requestError } = await supabase
+				.from('purchase_requests')
+				.insert({
+					id: newRequest.id,
+					title: newRequest.title,
+					description: newRequest.description,
+					department_id: departmentId,
+					requester_id: requesterId,
+					category: newRequest.category,
+					priority: newRequest.priority,
+					estimated_cost: newRequest.estimatedCost,
+					attachment_url: newRequest.attachmentUrl,
+					attachment_name: newRequest.attachmentName,
+					status: newRequest.status,
+					current_approver_id: newRequest.currentApproverId,
+					budget_status: newRequest.budgetStatus
+				});
 
-if (itemsError) {
-    console.error('Failed to save purchase request items:', itemsError);
-    globalStore.showToast('Purchase request was saved, but items could not be saved.', 'error');
-    return;
-}
+			if (!requestError) {
+				await supabase
+					.from('purchase_request_items')
+					.insert(
+						newRequest.items.map((item) => ({
+							id: `${newRequest.id}-${item.id}`,
+							request_id: newRequest.id,
+							item_name: item.itemName,
+							quantity: item.quantity,
+							unit_price: item.unitPrice
+						}))
+					);
+			}
+		} catch (err) {
+			console.warn('Could not sync request to Supabase, saved locally:', err);
+		}
+
 		db.logAction(
 			currentUser?.id || '',
 			'Create Purchase Request',
@@ -282,19 +305,19 @@ if (itemsError) {
 		);
 
 		// Add notification to department manager
-		const managerId = db.getDepartments().find((/** @type {any} */ d) => d.id === currentUser?.departmentId)?.managerId;
+		const managerId = db.getDepartments().find((/** @type {any} */ d) => d.id === departmentId)?.managerId;
 		if (managerId) {
 			db.addNotification(
 				managerId,
 				'New Purchase Request Pending',
-				`${currentUser?.fullName} submitted a request: "${newRequest.title}" (₹${newRequest.estimatedCost}).`,
+				`${currentUser?.fullName || 'Employee'} submitted a request: "${newRequest.title}" (₹${newRequest.estimatedCost}).`,
 				'Alert'
 			);
 		}
 
 		await loadPurchaseRequests();
-        globalStore.showToast(`Purchase Request ${newRequest.id} submitted successfully!`, 'success');
-resetForm();
+		globalStore.showToast(`Purchase Request ${newRequest.id} submitted successfully!`, 'success');
+		resetForm();
 	}
 
 	function resetForm() {

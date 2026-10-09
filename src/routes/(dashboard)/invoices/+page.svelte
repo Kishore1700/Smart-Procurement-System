@@ -1,6 +1,7 @@
 <script>
 	import { globalStore } from '$lib/stores/globalStore.svelte';
 	import { db } from '$lib/db/mockDb';
+	import { processRazorpayPayment } from '$lib/razorpay';
 	import { z } from 'zod';
 	import {
 		DollarSign,
@@ -158,16 +159,41 @@
 		globalStore.showToast(`Invoice ${list[idx].invoiceNumber} marked as Verified.`, 'success');
 	}
 
-	function payInvoice(/** @type {string} */ invId) {
+	async function payInvoice(/** @type {string} */ invId) {
 		const list = db.getInvoices();
 		const idx = list.findIndex((/** @type {any} */ i) => i.id === invId);
 		if (idx === -1) return;
+
+		const targetInv = list[idx];
+
+		globalStore.showToast(`Opening Razorpay payout modal for Invoice ${targetInv.invoiceNumber}...`, 'info');
+
+		const paymentResult = await processRazorpayPayment({
+			amount: targetInv.amount,
+			title: 'Invoice Payout',
+			description: `Vendor Invoice Settlement ${targetInv.invoiceNumber}`,
+			receipt: `inv_${invId.substring(0, 10)}`,
+			notes: {
+				invoice_id: invId,
+				po_number: targetInv.poNumber,
+				invoice_number: targetInv.invoiceNumber
+			},
+			prefill: {
+				name: currentUser?.fullName || currentUser?.username || 'Finance Officer',
+				email: currentUser?.email || 'finance@procurement.com'
+			}
+		});
+
+		if (!paymentResult.success) {
+			globalStore.showToast(`Payment Cancelled or Failed: ${paymentResult.error || 'Invoice not settled.'}`, 'error');
+			return;
+		}
 
 		list[idx].status = 'Paid';
 		list[idx].paidAt = new Date().toISOString();
 		db.saveInvoices(list);
 
-		db.logAction(currentUser?.id || '', 'Pay Invoice', `Disbursed payment for Invoice ${list[idx].invoiceNumber}`);
+		db.logAction(currentUser?.id || '', 'Pay Invoice', `Disbursed payment (Txn: ${paymentResult.paymentId}) for Invoice ${list[idx].invoiceNumber}`);
 
 		// Notify vendor
 		const po = db.getPurchaseOrders().find((/** @type {any} */ p) => p.poNumber === list[idx].poNumber);
@@ -177,13 +203,13 @@
 				db.addNotification(
 					vu.id,
 					'Invoice Paid',
-					`Payment disbursed for Invoice ${list[idx].invoiceNumber} ($${list[idx].amount}).`,
+					`Payment disbursed for Invoice ${list[idx].invoiceNumber} (₹${list[idx].amount}). Txn ID: ${paymentResult.paymentId}`,
 					'Success'
 				);
 			});
 		}
 
-		globalStore.showToast(`Payment disbursed for Invoice ${list[idx].invoiceNumber}!`, 'success');
+		globalStore.showToast(`Payment of ₹${targetInv.amount.toLocaleString()} disbursed for Invoice ${list[idx].invoiceNumber}! Txn ID: ${paymentResult.paymentId}`, 'success');
 	}
 </script>
 

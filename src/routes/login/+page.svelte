@@ -57,15 +57,15 @@
 		role: roleSchema
 	});
 
-	function redirectForRole(user) {
-		if (user.role === 'Employee') {
+	function redirectForRole(/** @type {any} */ user) {
+		if (user?.role === 'Employee') {
 			goto('/purchase-requests');
 		} else {
 			goto('/dashboard');
 		}
 	}
 
-	async function getProfile(user) {
+	async function getProfile(/** @type {any} */ user) {
 		const { data: procurementUser, error: procurementError } =
 			await supabase
 				.from('users')
@@ -135,10 +135,10 @@
 				const profile = await getProfile(data.session.user);
 				await globalStore.login(profile);
 				redirectForRole(profile);
-			} catch (profileError) {
+			} catch (/** @type {any} */ profileError) {
 				globalStore.clearSession();
 				globalStore.showToast(
-					profileError.message ||
+					profileError?.message ||
 						'Unable to load your profile.',
 					'error'
 				);
@@ -170,7 +170,7 @@
 		});
 
 		if (!result.success) {
-			result.error.issues.forEach((issue) => {
+			result.error.issues.forEach((/** @type {any} */ issue) => {
 				const path = String(issue.path[0]);
 				errors[path] = issue.message;
 			});
@@ -178,61 +178,40 @@
 			return;
 		}
 
-		// Fixed Admin credentials check
-		if (email.trim().toLowerCase() === 'head@gmail.com') {
-			if (password !== 'Head@123') {
-				globalStore.showToast('Invalid password for Admin account.', 'error');
-				errors.password = 'Invalid password for Admin';
+		const cleanEmail = email.trim().toLowerCase();
+		const mockUsers = db.getUsers();
+		const matchedUser = mockUsers.find(
+			(/** @type {any} */ u) => u.email.toLowerCase() === cleanEmail
+		);
+
+		if (matchedUser) {
+			if (matchedUser.password && password !== matchedUser.password) {
+				globalStore.showToast('Invalid email or password', 'error');
+				errors.password = 'Incorrect password';
 				return;
 			}
-			const allUsers = db.getUsers();
-			const adminUser = allUsers.find((u) => u.email === 'head@gmail.com') || {
-				id: 'user-mgr1',
-				username: 'admin',
-				email: 'head@gmail.com',
-				role: 'Manager',
-				departmentId: 'dept-electronics',
-				fullName: 'Head Admin',
-				status: 'Active'
-			};
-			await globalStore.login(adminUser);
-			redirectForRole(adminUser);
-			return;
-		}
-
-		const { data, error } =
-			await supabase.auth.signInWithPassword({
-				email,
-				password
-			});
-
-		if (error) {
-			// Check local mock user fallback
-			const mockUsers = db.getUsers();
-			const matchedUser = mockUsers.find(
-				(u) => u.email.toLowerCase() === email.trim().toLowerCase()
-			);
-
-			if (matchedUser) {
-				await globalStore.login(matchedUser);
-				redirectForRole(matchedUser);
-				return;
-			}
-
-			globalStore.showToast(error.message, 'error');
+			await globalStore.login(matchedUser);
+			redirectForRole(matchedUser);
 			return;
 		}
 
 		try {
+			const { data, error } =
+				await supabase.auth.signInWithPassword({
+					email: cleanEmail,
+					password
+				});
+
+			if (error) {
+				globalStore.showToast(error.message || 'Invalid login credentials', 'error');
+				return;
+			}
+
 			const profile = await getProfile(data.user);
 			await globalStore.login(profile);
 			redirectForRole(profile);
-		} catch (profileError) {
-			globalStore.showToast(
-				profileError.message ||
-					'Unable to load your profile.',
-				'error'
-			);
+		} catch (err) {
+			globalStore.showToast('Invalid login credentials', 'error');
 		}
 	}
 
@@ -255,7 +234,7 @@
 		});
 
 		if (!result.success) {
-			result.error.issues.forEach((issue) => {
+			result.error.issues.forEach((/** @type {any} */ issue) => {
 				const path = String(issue.path[0]);
 				errors[path] = issue.message;
 			});
@@ -311,9 +290,9 @@
 				'success'
 			);
 			redirectForRole(profile);
-		} catch (profileError) {
+		} catch (/** @type {any} */ profileError) {
 			globalStore.showToast(
-				profileError.message ||
+				profileError?.message ||
 					'Unable to load your profile.',
 				'error'
 			);
@@ -354,18 +333,18 @@
 	}
 </script>
 
-<div class="min-h-screen flex items-center justify-center p-6 bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 relative overflow-hidden transition-colors">
+<div class="min-h-screen flex items-center justify-center p-4 sm:p-6 bg-slate-950 text-slate-100 relative overflow-hidden transition-colors">
 	<!-- Theme Switcher Top Right -->
 	<div class="absolute top-5 right-5 z-30">
 		<button
 			onclick={() => globalStore.toggleTheme()}
-			class="btn btn-ghost btn-sm btn-circle text-slate-600 dark:text-slate-300 hover:bg-slate-200/60 dark:hover:bg-slate-800/80 transition-all duration-300 group shadow-xs"
+			class="btn btn-ghost btn-sm btn-circle text-slate-300 hover:bg-slate-800/80 transition-all duration-300 group shadow-xs"
 			title="Toggle Theme"
 			aria-label="Toggle Theme"
 		>
 			<div class="relative w-4 h-4 flex items-center justify-center transition-transform duration-500 ease-out group-hover:rotate-45">
 				{#if globalStore.theme === 'light'}
-					<Moon class="w-4 h-4 text-slate-700" />
+					<Moon class="w-4 h-4 text-slate-300" />
 				{:else}
 					<Sun class="w-4 h-4 text-amber-400" />
 				{/if}
@@ -373,88 +352,116 @@
 		</button>
 	</div>
 
-	<!-- Background Glow Accents -->
-	<div class="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-sky-600/10 blur-[120px] pointer-events-none"></div>
-	<div class="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] rounded-full bg-blue-600/10 blur-[140px] pointer-events-none"></div>
+	<!-- Ambient Background Glow Accents -->
+	<div class="absolute top-[-10%] left-[-10%] w-[550px] h-[550px] rounded-full bg-sky-500/20 blur-[140px] pointer-events-none"></div>
+	<div class="absolute bottom-[-10%] right-[-10%] w-[600px] h-[600px] rounded-full bg-indigo-600/20 blur-[150px] pointer-events-none"></div>
 
-	<!-- Centered Auth Card -->
-	<div class="w-full max-w-md relative z-10 my-8">
-		<div class="glass-card border border-slate-200/80 dark:border-slate-800 p-8 sm:p-10 rounded-3xl shadow-2xl bg-white/95 dark:bg-slate-900/95 space-y-8">
+	<!-- Centered Auth Card Container with Gradient Border -->
+	<div class="w-full max-w-lg relative z-10 my-6 p-[1px] rounded-3xl bg-gradient-to-b from-sky-500/40 via-slate-800/60 to-indigo-500/40 shadow-2xl shadow-sky-950/50">
+		<div class="bg-slate-900/95 dark:bg-slate-950/95 backdrop-blur-2xl p-7 sm:p-9 rounded-[23px] space-y-7">
 			<!-- Header / Brand -->
-			<div class="text-left">
-				<div class="inline-flex p-3 bg-gradient-to-tr from-sky-600 to-cyan-500 text-white rounded-2xl mb-4 shadow-lg shadow-sky-500/20">
+			<div class="text-left space-y-2">
+				<div class="inline-flex items-center justify-center p-3 bg-gradient-to-tr from-sky-500 via-blue-600 to-indigo-600 text-white rounded-2xl shadow-lg shadow-sky-500/30">
 					<ShieldCheck class="w-7 h-7" />
 				</div>
 
-				<h1 class="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
+				<h1 class="text-2xl sm:text-3xl font-black tracking-tight text-white">
 					ProcureSmart Portal
 				</h1>
 
-				<p class="text-slate-500 dark:text-slate-400 text-xs mt-1.5 font-medium">
-					Enter your credentials to access your procurement dashboard.
+				<p class="text-slate-400 text-xs font-medium">
+					{mode === 'login'
+						? 'Enter your credentials to access your procurement dashboard.'
+						: mode === 'register'
+							? 'Create a new account to join ProcureSmart.'
+							: 'Reset your portal password via email.'}
 				</p>
 			</div>
 
+			<!-- Mode Switcher Tabs (Login vs Register) -->
+			{#if mode !== 'forgot'}
+				<div class="grid grid-cols-2 p-1.5 bg-slate-950/90 rounded-2xl border border-slate-800 text-xs font-bold">
+					<button
+						type="button"
+						onclick={() => (mode = 'login')}
+						class="py-2.5 rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 {mode === 'login'
+							? 'bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-md font-black'
+							: 'text-slate-400 hover:text-white'}"
+					>
+						Sign In
+					</button>
+
+					<button
+						type="button"
+						onclick={() => (mode = 'register')}
+						class="py-2.5 rounded-xl transition-all duration-200 flex items-center justify-center gap-1.5 {mode === 'register'
+							? 'bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-md font-black'
+							: 'text-slate-400 hover:text-white'}"
+					>
+						Create Account
+					</button>
+				</div>
+			{/if}
+
 			{#if mode === 'login'}
 				<form onsubmit={handleLogin} class="space-y-5">
-					<div class="form-control">
-						<label class="label pb-1.5" for="login-email">
-							<span class="label-text font-bold text-xs text-slate-700 dark:text-slate-300">
-								Email Address
-							</span>
+					<!-- Email Field -->
+					<div class="space-y-1.5">
+						<label class="block font-extrabold text-xs text-slate-300" for="login-email">
+							Email Address
 						</label>
 
-						<div class="relative">
-							<Mail class="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+						<div class="w-full flex items-center gap-3 px-3.5 h-11 bg-slate-950/80 border border-slate-800 focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-500/20 rounded-xl transition-all {errors.email ? 'border-rose-500 focus-within:border-rose-500' : ''}">
+							<Mail class="w-4 h-4 text-slate-400 shrink-0" />
 
 							<input
 								id="login-email"
 								type="email"
 								placeholder="name@enterprise.com"
 								bind:value={email}
-								class="input w-full pl-10 bg-slate-100 dark:bg-slate-900/80 border-slate-300 dark:border-slate-800 focus:border-sky-500 text-xs text-slate-900 dark:text-slate-100 rounded-xl {errors.email ? 'border-rose-500' : ''}"
+								class="w-full bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-xs text-white placeholder:text-slate-500"
 							/>
 						</div>
 
 						{#if errors.email}
-							<span class="text-rose-500 text-[10px] font-bold mt-1">
-								{errors.email}
-							</span>
+							<p class="text-rose-400 text-[10px] font-extrabold mt-1 flex items-center gap-1">
+								• {errors.email}
+							</p>
 						{/if}
 					</div>
 
-					<div class="form-control">
-						<div class="flex justify-between items-center pb-1.5">
-							<label class="label p-0" for="login-password">
-								<span class="label-text font-bold text-xs text-slate-700 dark:text-slate-300">
-									Password
-								</span>
+					<!-- Password Field -->
+					<div class="space-y-1.5">
+						<div class="flex justify-between items-center">
+							<label class="block font-extrabold text-xs text-slate-300" for="login-password">
+								Password
 							</label>
 
 							<button
 								type="button"
 								onclick={() => (mode = 'forgot')}
-								class="text-[11px] font-extrabold text-sky-500 hover:text-sky-400"
+								class="text-[11px] font-extrabold text-sky-400 hover:text-sky-300 hover:underline"
 							>
 								Forgot password?
 							</button>
 						</div>
 
-						<div class="relative">
-							<Lock class="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+						<div class="w-full flex items-center gap-3 px-3.5 h-11 bg-slate-950/80 border border-slate-800 focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-500/20 rounded-xl transition-all {errors.password ? 'border-rose-500 focus-within:border-rose-500' : ''}">
+							<Lock class="w-4 h-4 text-slate-400 shrink-0" />
 
 							<input
 								id="login-password"
 								type={showPassword ? 'text' : 'password'}
 								placeholder="••••••••"
 								bind:value={password}
-								class="input w-full pl-10 pr-10 bg-slate-100 dark:bg-slate-900/80 border-slate-300 dark:border-slate-800 focus:border-sky-500 text-xs text-slate-900 dark:text-slate-100 rounded-xl {errors.password ? 'border-rose-500' : ''}"
+								class="w-full bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-xs text-white placeholder:text-slate-500"
 							/>
 
 							<button
 								type="button"
 								onclick={() => (showPassword = !showPassword)}
-								class="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-200"
+								class="text-slate-400 hover:text-slate-100 transition-colors shrink-0 p-1 rounded-lg"
+								aria-label="Toggle password visibility"
 							>
 								{#if showPassword}
 									<EyeOff class="w-4 h-4" />
@@ -465,29 +472,30 @@
 						</div>
 
 						{#if errors.password}
-							<span class="text-rose-500 text-[10px] font-bold mt-1">
-								{errors.password}
-							</span>
+							<p class="text-rose-400 text-[10px] font-extrabold mt-1 flex items-center gap-1">
+								• {errors.password}
+							</p>
 						{/if}
 					</div>
 
+					<!-- Submit Button -->
 					<button
 						type="submit"
-						class="btn bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white w-full text-sm font-semibold rounded-xl py-3.5 h-auto shadow-lg shadow-sky-600/25 transition-all"
+						class="w-full bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-600 hover:via-blue-700 hover:to-indigo-700 text-white text-xs sm:text-sm font-extrabold rounded-xl h-12 shadow-lg shadow-sky-500/25 hover:shadow-sky-500/35 hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer border-none"
 					>
 						Sign In
-						<ArrowRight class="w-4 h-4 ml-1.5" />
+						<ArrowRight class="w-4 h-4" />
 					</button>
 
-					<div class="text-center mt-6">
-						<span class="text-slate-400 text-[11px]">
+					<div class="text-center pt-2">
+						<span class="text-slate-400 text-xs font-medium">
 							Don't have an account?
 						</span>
 
 						<button
 							type="button"
 							onclick={() => (mode = 'register')}
-							class="text-[11px] font-extrabold text-sky-500 hover:text-sky-400 ml-1"
+							class="text-xs font-extrabold text-sky-400 hover:underline ml-1"
 						>
 							Create an account
 						</button>
@@ -497,38 +505,36 @@
 			{:else if mode === 'forgot'}
 
 				<form onsubmit={handleForgot} class="space-y-5">
-					<div class="form-control">
-						<label class="label pb-1.5" for="forgot-email">
-							<span class="label-text font-bold text-xs text-slate-700 dark:text-slate-300">
-								Email Address
-							</span>
+					<div class="space-y-1.5">
+						<label class="block font-extrabold text-xs text-slate-300" for="forgot-email">
+							Email Address
 						</label>
 
-						<div class="relative">
-							<Mail class="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+						<div class="w-full flex items-center gap-3 px-3.5 h-11 bg-slate-950/80 border border-slate-800 focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-500/20 rounded-xl transition-all">
+							<Mail class="w-4 h-4 text-slate-400 shrink-0" />
 
 							<input
 								id="forgot-email"
 								type="email"
 								placeholder="name@enterprise.com"
 								bind:value={email}
-								class="input w-full pl-10 bg-slate-100 dark:bg-slate-900/80 border-slate-300 dark:border-slate-800 focus:border-sky-500 text-xs text-slate-900 dark:text-slate-100 rounded-xl"
+								class="w-full bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-xs text-white placeholder:text-slate-500"
 							/>
 						</div>
 					</div>
 
 					<button
 						type="submit"
-						class="btn bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white w-full text-sm font-semibold rounded-xl py-3.5 h-auto shadow-lg shadow-sky-600/25 transition-all"
+						class="w-full bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-600 hover:via-blue-700 hover:to-indigo-700 text-white text-xs sm:text-sm font-extrabold rounded-xl h-12 shadow-lg shadow-sky-500/25 hover:shadow-sky-500/35 hover:scale-[1.01] active:scale-[0.99] transition-all cursor-pointer border-none"
 					>
 						Send Reset Link
 					</button>
 
-					<div class="text-center mt-4">
+					<div class="text-center pt-2">
 						<button
 							type="button"
 							onclick={() => (mode = 'login')}
-							class="text-[11px] font-extrabold text-sky-500 hover:text-sky-400"
+							class="text-xs font-extrabold text-sky-400 hover:underline"
 						>
 							Back to Sign In
 						</button>
@@ -538,164 +544,181 @@
 			{:else}
 
 				<form onsubmit={handleRegister} class="space-y-4">
-					<div class="form-control">
-						<label class="label pb-1" for="reg-name">
-							<span class="label-text font-bold text-xs text-slate-700 dark:text-slate-300">
-								Full Name
-							</span>
+					<!-- Full Name -->
+					<div class="space-y-1.5">
+						<label class="block font-extrabold text-xs text-slate-300" for="reg-name">
+							Full Name
 						</label>
 
-						<div class="relative">
-							<UserIcon class="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+						<div class="w-full flex items-center gap-3 px-3.5 h-11 bg-slate-950/80 border border-slate-800 focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-500/20 rounded-xl transition-all {errors.fullName ? 'border-rose-500 focus-within:border-rose-500' : ''}">
+							<UserIcon class="w-4 h-4 text-slate-400 shrink-0" />
 
 							<input
 								id="reg-name"
 								type="text"
 								placeholder="Alice Johnson"
 								bind:value={fullName}
-								class="input w-full pl-10 bg-slate-100 dark:bg-slate-900/80 border-slate-300 dark:border-slate-800 text-xs text-slate-900 dark:text-slate-100 rounded-xl {errors.fullName ? 'border-rose-500' : ''}"
+								class="w-full bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-xs text-white placeholder:text-slate-500"
 							/>
 						</div>
 
 						{#if errors.fullName}
-							<span class="text-rose-500 text-[10px] font-bold mt-1">
-								{errors.fullName}
-							</span>
+							<p class="text-rose-400 text-[10px] font-extrabold mt-1 flex items-center gap-1">
+								• {errors.fullName}
+							</p>
 						{/if}
 					</div>
 
-					<div class="grid grid-cols-2 gap-4">
-						<div class="form-control">
-							<label class="label pb-1" for="reg-username">
-								<span class="label-text font-bold text-xs text-slate-700 dark:text-slate-300">
-									Username
-								</span>
+					<div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+						<!-- Username -->
+						<div class="space-y-1.5">
+							<label class="block font-extrabold text-xs text-slate-300" for="reg-username">
+								Username
 							</label>
 
-							<input
-								id="reg-username"
-								type="text"
-								placeholder="alice"
-								bind:value={username}
-								class="input w-full bg-slate-100 dark:bg-slate-900/80 border-slate-300 dark:border-slate-800 text-xs text-slate-900 dark:text-slate-100 rounded-xl {errors.username ? 'border-rose-500' : ''}"
-							/>
+							<div class="w-full flex items-center px-3.5 h-11 bg-slate-950/80 border border-slate-800 focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-500/20 rounded-xl transition-all {errors.username ? 'border-rose-500 focus-within:border-rose-500' : ''}">
+								<input
+									id="reg-username"
+									type="text"
+									placeholder="alice"
+									bind:value={username}
+									class="w-full bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-xs text-white placeholder:text-slate-500"
+								/>
+							</div>
 
 							{#if errors.username}
-								<span class="text-rose-500 text-[10px] font-bold mt-1">
-									{errors.username}
-								</span>
+								<p class="text-rose-400 text-[10px] font-extrabold mt-1 flex items-center gap-1">
+									• {errors.username}
+								</p>
 							{/if}
 						</div>
 
-						<div class="form-control">
-							<label class="label pb-1" for="reg-role">
-								<span class="label-text font-bold text-xs text-slate-700 dark:text-slate-300">
-									Select Role
-								</span>
+						<!-- Role -->
+						<div class="space-y-1.5">
+							<label class="block font-extrabold text-xs text-slate-300" for="reg-role">
+								Select Role
 							</label>
 
-							<select
-								id="reg-role"
-								bind:value={role}
-								class="select bg-slate-100 dark:bg-slate-900/80 border-slate-300 dark:border-slate-800 text-xs text-slate-900 dark:text-slate-100 rounded-xl"
-							>
-								<option value="Employee">Employee</option>
-								<option value="Vendor">Vendor Portal</option>
-							</select>
+							<div class="w-full flex items-center px-3 h-11 bg-slate-950/80 border border-slate-800 focus-within:border-sky-500 rounded-xl">
+								<select
+									id="reg-role"
+									bind:value={role}
+									class="w-full bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-xs font-bold text-white cursor-pointer"
+								>
+									<option value="Employee" class="bg-slate-900 text-white">Employee Account</option>
+									<option value="Vendor" class="bg-slate-900 text-white">Vendor Portal</option>
+								</select>
+							</div>
 						</div>
 					</div>
 
 					{#if role === 'Employee'}
-						<div class="form-control">
-							<label class="label pb-1" for="reg-dept">
-								<span class="label-text font-bold text-xs text-slate-700 dark:text-slate-300">
-									Department
-								</span>
+						<div class="space-y-1.5">
+							<label class="block font-extrabold text-xs text-slate-300" for="reg-dept">
+								Department
 							</label>
 
-							<select
-								id="reg-dept"
-								bind:value={departmentId}
-								class="select bg-slate-100 dark:bg-slate-900/80 border-slate-300 dark:border-slate-800 text-xs text-slate-900 dark:text-slate-100 rounded-xl"
-							>
-								<option value="dept-electronics">Electronics</option>
-								<option value="dept-kitchen">Kitchen Appliances</option>
-								<option value="dept-clothes">Clothes</option>
-								<option value="dept-toys">Kids Toys</option>
-								<option value="dept-deptstore">Departmental Store</option>
-								<option value="dept-footwear">Footwear</option>
-								<option value="dept-furniture">Furnitures</option>
-								<option value="dept-others">Others</option>
-							</select>
+							<div class="w-full flex items-center px-3 h-11 bg-slate-950/80 border border-slate-800 focus-within:border-sky-500 rounded-xl">
+								<select
+									id="reg-dept"
+									bind:value={departmentId}
+									class="w-full bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-xs font-bold text-white cursor-pointer"
+								>
+									<option value="dept-electronics" class="bg-slate-900 text-white">Electronics</option>
+									<option value="dept-kitchen" class="bg-slate-900 text-white">Kitchen Appliances</option>
+									<option value="dept-clothes" class="bg-slate-900 text-white">Clothes</option>
+									<option value="dept-toys" class="bg-slate-900 text-white">Kids Toys</option>
+									<option value="dept-deptstore" class="bg-slate-900 text-white">Departmental Store</option>
+									<option value="dept-footwear" class="bg-slate-900 text-white">Footwear</option>
+									<option value="dept-furniture" class="bg-slate-900 text-white">Furnitures</option>
+									<option value="dept-others" class="bg-slate-900 text-white">Others</option>
+								</select>
+							</div>
 						</div>
 					{/if}
 
-					<div class="form-control">
-						<label class="label pb-1" for="reg-email">
-							<span class="label-text font-bold text-xs text-slate-700 dark:text-slate-300">
-								Email Address
-							</span>
+					<!-- Email -->
+					<div class="space-y-1.5">
+						<label class="block font-extrabold text-xs text-slate-300" for="reg-email">
+							Email Address
 						</label>
 
-						<div class="relative">
-							<Mail class="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+						<div class="w-full flex items-center gap-3 px-3.5 h-11 bg-slate-950/80 border border-slate-800 focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-500/20 rounded-xl transition-all {errors.email ? 'border-rose-500 focus-within:border-rose-500' : ''}">
+							<Mail class="w-4 h-4 text-slate-400 shrink-0" />
 
 							<input
 								id="reg-email"
 								type="email"
 								placeholder="name@enterprise.com"
 								bind:value={email}
-								class="input w-full pl-10 bg-slate-100 dark:bg-slate-900/80 border-slate-300 dark:border-slate-800 text-xs text-slate-900 dark:text-slate-100 rounded-xl {errors.email ? 'border-rose-500' : ''}"
+								class="w-full bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-xs text-white placeholder:text-slate-500"
 							/>
 						</div>
 
 						{#if errors.email}
-							<span class="text-rose-500 text-[10px] font-bold mt-1">
-								{errors.email}
-							</span>
+							<p class="text-rose-400 text-[10px] font-extrabold mt-1 flex items-center gap-1">
+								• {errors.email}
+							</p>
 						{/if}
 					</div>
 
-					<div class="form-control">
-						<label class="label pb-1" for="reg-password">
-							<span class="label-text font-bold text-xs text-slate-700 dark:text-slate-300">
-								Create Password
-							</span>
+					<!-- Password -->
+					<div class="space-y-1.5">
+						<label class="block font-extrabold text-xs text-slate-300" for="reg-password">
+							Create Password
 						</label>
 
-						<div class="relative">
-							<Lock class="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+						<div class="w-full flex items-center gap-3 px-3.5 h-11 bg-slate-950/80 border border-slate-800 focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-500/20 rounded-xl transition-all {errors.password ? 'border-rose-500 focus-within:border-rose-500' : ''}">
+							<Lock class="w-4 h-4 text-slate-400 shrink-0" />
 
 							<input
 								id="reg-password"
-								type="password"
+								type={showPassword ? 'text' : 'password'}
 								placeholder="••••••••"
 								bind:value={password}
-								class="input w-full pl-10 bg-slate-100 dark:bg-slate-900/80 border-slate-300 dark:border-slate-800 text-xs text-slate-900 dark:text-slate-100 rounded-xl {errors.password ? 'border-rose-500' : ''}"
+								class="w-full bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-xs text-white placeholder:text-slate-500"
 							/>
+
+							<button
+								type="button"
+								onclick={() => (showPassword = !showPassword)}
+								class="text-slate-400 hover:text-slate-100 transition-colors shrink-0 p-1 rounded-lg"
+								aria-label="Toggle password visibility"
+							>
+								{#if showPassword}
+									<EyeOff class="w-4 h-4" />
+								{:else}
+									<Eye class="w-4 h-4" />
+								{/if}
+							</button>
 						</div>
 
 						{#if errors.password}
-							<span class="text-rose-500 text-[10px] font-bold mt-1">
-								{errors.password}
-							</span>
+							<p class="text-rose-400 text-[10px] font-extrabold mt-1 flex items-center gap-1">
+								• {errors.password}
+							</p>
 						{/if}
 					</div>
 
 					<button
 						type="submit"
-						class="btn bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-600 hover:to-blue-700 text-white w-full text-sm font-semibold rounded-xl py-3.5 h-auto mt-2 shadow-lg shadow-sky-600/25 transition-all"
+						class="w-full bg-gradient-to-r from-sky-500 via-blue-600 to-indigo-600 hover:from-sky-600 hover:via-blue-700 hover:to-indigo-700 text-white text-xs sm:text-sm font-extrabold rounded-xl h-12 mt-2 shadow-lg shadow-sky-500/25 hover:shadow-sky-500/35 hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer border-none"
 					>
 						Create Account
+						<ArrowRight class="w-4 h-4" />
 					</button>
 
-					<div class="text-center mt-4">
+					<div class="text-center pt-2">
+						<span class="text-slate-400 text-xs font-medium">
+							Already registered?
+						</span>
+
 						<button
 							type="button"
 							onclick={() => (mode = 'login')}
-							class="text-[11px] font-extrabold text-sky-500 hover:text-sky-400"
+							class="text-xs font-extrabold text-sky-400 hover:underline ml-1"
 						>
-							Back to Sign In
+							Sign In
 						</button>
 					</div>
 				</form>

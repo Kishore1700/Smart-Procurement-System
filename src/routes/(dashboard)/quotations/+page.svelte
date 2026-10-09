@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { globalStore } from '$lib/stores/globalStore.svelte';
 	import { supabase } from '$lib/supabase';
+	import { processRazorpayPayment } from '$lib/razorpay';
 	import {
 		Award,
 		DollarSign,
@@ -19,47 +20,64 @@
 	let warranty = $state(12);
 	let termsInput = $state('');
 
-	let approvedRequests = $state([]);
-	let quotationsData = $state([]);
-	let vendors = $state([]);
-	let comparedPr = $state(null);
+	let approvedRequests = $state(/** @type {any[]} */ ([]));
+	let quotationsData = $state(/** @type {any[]} */ ([]));
+	let vendors = $state(/** @type {any[]} */ ([]));
+	let comparedPr = $state(/** @type {any} */ (null));
+
+	import { db } from '$lib/db/mockDb';
 
 	async function loadApprovedRequests() {
-		const { data, error } = await supabase
-			.from('purchase_requests')
-			.select(`
-				*,
-				purchase_request_items (*)
-			`)
-			.in('status', ['Approved', 'Pending Approval'])
-			.order('created_at', { ascending: false });
+		let list = [];
+		try {
+			const { data, error } = await supabase
+				.from('purchase_requests')
+				.select(`
+					*,
+					purchase_request_items (*)
+				`)
+				.in('status', ['Approved', 'Pending Approval'])
+				.order('created_at', { ascending: false });
 
-		if (error) {
-			console.error('Failed to load purchase requests:', error);
-			globalStore.showToast(
-				'Failed to load purchase requests.',
-				'error'
-			);
-			return;
+			if (!error && data && data.length > 0) {
+				list = data.map((/** @type {any} */ pr) => ({
+					...pr,
+					estimatedCost: Number(pr.estimated_cost),
+					requesterId: pr.requester_id,
+					departmentId: pr.department_id,
+					currentApproverId: pr.current_approver_id,
+					budgetStatus: pr.budget_status,
+					createdAt: pr.created_at,
+					updatedAt: pr.updated_at,
+					items: pr.purchase_request_items || []
+				}));
+			}
+		} catch (e) {
+			console.warn('Supabase PR fetch failed, fallback to db:', e);
 		}
 
-		approvedRequests = (data || []).map((pr) => ({
-			...pr,
-			estimatedCost: Number(pr.estimated_cost),
-			requesterId: pr.requester_id,
-			departmentId: pr.department_id,
-			currentApproverId: pr.current_approver_id,
-			budgetStatus: pr.budget_status,
-			createdAt: pr.created_at,
-			updatedAt: pr.updated_at,
-			items: pr.purchase_request_items || []
-		}));
+		if (list.length === 0) {
+			const localPrs = db.getPurchaseRequests().filter((/** @type {any} */ pr) => pr.status === 'Approved' || pr.status === 'Pending Approval');
+			list = localPrs.map((/** @type {any} */ pr) => ({
+				...pr,
+				estimatedCost: Number(pr.estimatedCost || pr.estimated_cost || 0),
+				requesterId: pr.requesterId || pr.requester_id,
+				departmentId: pr.departmentId || pr.department_id,
+				currentApproverId: pr.currentApproverId || pr.current_approver_id,
+				budgetStatus: pr.budgetStatus || pr.budget_status || 'Valid',
+				createdAt: pr.createdAt || pr.created_at,
+				updatedAt: pr.updatedAt || pr.updated_at,
+				items: pr.items || []
+			}));
+		}
+
+		approvedRequests = list;
 
 		if (
 			approvedRequests.length > 0 &&
 			(!selectedRequestId ||
 				!approvedRequests.some(
-					(pr) => pr.id === selectedRequestId
+					(/** @type {any} */ pr) => pr.id === selectedRequestId
 				))
 		) {
 			selectedRequestId = approvedRequests[0].id;
@@ -76,7 +94,7 @@
 		}
 
 		const request = approvedRequests.find(
-			(pr) => pr.id === selectedRequestId
+			(/** @type {any} */ pr) => pr.id === selectedRequestId
 		);
 
 		if (request) {
@@ -84,43 +102,59 @@
 			return;
 		}
 
-		const { data, error } = await supabase
-			.from('purchase_requests')
-			.select(`
-				*,
-				purchase_request_items (*)
-			`)
-			.eq('id', selectedRequestId)
-			.single();
+		try {
+			const { data, error } = await supabase
+				.from('purchase_requests')
+				.select(`
+					*,
+					purchase_request_items (*)
+				`)
+				.eq('id', selectedRequestId)
+				.single();
 
-		if (error) {
-			console.error(
-				'Failed to load selected request:',
-				error
-			);
-			comparedPr = null;
-			return;
+			if (!error && data) {
+				comparedPr = {
+					...data,
+					estimatedCost: Number(data.estimated_cost),
+					items: data.purchase_request_items || []
+				};
+				return;
+			}
+		} catch (e) {
+			console.warn('Supabase single PR fetch failed:', e);
 		}
 
-		comparedPr = {
-			...data,
-			estimatedCost: Number(data.estimated_cost),
-			items: data.purchase_request_items || []
-		};
+		const localPr = db.getPurchaseRequests().find((/** @type {any} */ pr) => pr.id === selectedRequestId);
+		if (localPr) {
+			comparedPr = {
+				...localPr,
+				estimatedCost: Number(localPr.estimatedCost || localPr.estimated_cost || 0),
+				items: localPr.items || []
+			};
+		} else {
+			comparedPr = null;
+		}
 	}
 
 	async function loadVendors() {
-		const { data, error } = await supabase
-			.from('vendors')
-			.select('*');
+		let list = [];
+		try {
+			const { data, error } = await supabase
+				.from('vendors')
+				.select('*');
 
-		if (error) {
-			console.error('Failed to load vendors:', error);
-			vendors = [];
-			return;
+			if (!error && data && data.length > 0) {
+				list = data;
+			}
+		} catch (e) {
+			console.warn('Supabase vendor fetch failed:', e);
 		}
 
-		vendors = data || [];
+		if (list.length === 0) {
+			list = db.getVendors();
+		}
+
+		vendors = list;
 	}
 
 	async function loadQuotations() {
@@ -129,41 +163,53 @@
 			return;
 		}
 
-		const { data, error } = await supabase
-			.from('quotations')
-			.select('*')
-			.eq('request_id', selectedRequestId)
-			.order('created_at', { ascending: false });
+		let list = [];
+		try {
+			const { data, error } = await supabase
+				.from('quotations')
+				.select('*')
+				.eq('request_id', selectedRequestId)
+				.order('created_at', { ascending: false });
 
-		if (error) {
-			console.error(
-				'Failed to load quotations:',
-				error
-			);
-
-			globalStore.showToast(
-				'Failed to load quotations.',
-				'error'
-			);
-
-			quotationsData = [];
-			return;
+			if (!error && data && data.length > 0) {
+				list = data.map((/** @type {any} */ q) => ({
+					...q,
+					requestId: q.request_id,
+					vendorId: q.vendor_id,
+					price: Number(q.price),
+					deliveryTimeDays: Number(q.delivery_time_days),
+					warrantyMonths: Number(q.warranty_months),
+					attachmentUrl: q.attachment_url,
+					recommendationScore: Number(
+						q.recommendation_score || 0
+					),
+					isLowestPrice: Boolean(q.is_lowest_price),
+					createdAt: q.created_at
+				}));
+			}
+		} catch (e) {
+			console.warn('Supabase quotations fetch failed:', e);
 		}
 
-		quotationsData = (data || []).map((q) => ({
-			...q,
-			requestId: q.request_id,
-			vendorId: q.vendor_id,
-			price: Number(q.price),
-			deliveryTimeDays: Number(q.delivery_time_days),
-			warrantyMonths: Number(q.warranty_months),
-			attachmentUrl: q.attachment_url,
-			recommendationScore: Number(
-				q.recommendation_score || 0
-			),
-			isLowestPrice: Boolean(q.is_lowest_price),
-			createdAt: q.created_at
-		}));
+		if (list.length === 0) {
+			const localQuotes = db.getQuotations().filter((/** @type {any} */ q) => (q.requestId || q.request_id) === selectedRequestId);
+			list = localQuotes.map((/** @type {any} */ q) => ({
+				...q,
+				id: q.id,
+				requestId: q.requestId || q.request_id,
+				vendorId: q.vendorId || q.vendor_id,
+				price: Number(q.price),
+				deliveryTimeDays: Number(q.deliveryTimeDays || q.delivery_time_days || 5),
+				warrantyMonths: Number(q.warrantyMonths || q.warranty_months || 12),
+				terms: q.terms || '',
+				status: q.status || 'Submitted',
+				recommendationScore: Number(q.recommendationScore || q.recommendation_score || 80),
+				isLowestPrice: Boolean(q.isLowestPrice || q.is_lowest_price),
+				createdAt: q.createdAt || q.created_at
+			}));
+		}
+
+		quotationsData = list;
 	}
 
 	let quotations = $derived.by(() => {
@@ -171,18 +217,18 @@
 
 		if (list.length > 0) {
 			const minPrice = Math.min(
-				...list.map((q) => q.price)
+				...list.map((/** @type {any} */ q) => q.price)
 			);
 
-			list = list.map((q) => ({
+			list = list.map((/** @type {any} */ q) => ({
 				...q,
 				isLowestPrice: q.price === minPrice
 			}));
 		}
 
-		list = list.map((q) => {
+		list = list.map((/** @type {any} */ q) => {
 			const vendor = vendors.find(
-				(v) => v.id === q.vendorId
+				(/** @type {any} */ v) => v.id === q.vendorId
 			);
 
 			const performanceFactor = Number(
@@ -224,7 +270,7 @@
 		});
 
 		return list.sort(
-			(a, b) =>
+			(/** @type {any} */ a, /** @type {any} */ b) =>
 				b.recommendationScore -
 				a.recommendationScore
 		);
@@ -237,16 +283,16 @@
 	);
 
 	let lowestQuote = $derived(
-		quotations.find((q) => q.isLowestPrice)
+		quotations.find((/** @type {any} */ q) => q.isLowestPrice)
 	);
 
-	function getVendor(vendorId) {
+	function getVendor(/** @type {any} */ vendorId) {
 		return vendors.find(
-			(v) => String(v.id) === String(vendorId)
+			(/** @type {any} */ v) => String(v.id) === String(vendorId)
 		);
 	}
 
-	function getVendorName(vendorId) {
+	function getVendorName(/** @type {any} */ vendorId) {
 		const vendor = getVendor(vendorId);
 
 		if (vendor) {
@@ -265,7 +311,7 @@
 		return 'Unknown Vendor';
 	}
 
-	function getVendorRating(vendorId) {
+	function getVendorRating(/** @type {any} */ vendorId) {
 		const vendor = getVendor(vendorId);
 
 		if (vendor?.rating !== null && vendor?.rating !== undefined) {
@@ -293,7 +339,7 @@
 		return 80;
 	}
 
-	async function submitVendorQuote(e) {
+	async function submitVendorQuote(/** @type {any} */ e) {
 		e.preventDefault();
 
 		if (!currentUser?.vendorId) {
@@ -343,24 +389,34 @@
 			created_at: new Date().toISOString()
 		};
 
-		const { error } = await supabase
-			.from('quotations')
-			.insert(newQuote);
+		let supabaseSaved = false;
+		try {
+			const { error } = await supabase
+				.from('quotations')
+				.insert(newQuote);
 
-		if (error) {
-			console.error(
-				'Failed to submit quotation:',
-				error
-			);
+			if (!error) supabaseSaved = true;
+		} catch (e) {
+			console.warn('Supabase quotation insert failed, using db fallback:', e);
+		}
 
-			globalStore.showToast(
-				`Failed to submit quotation: ${
-					error.message || 'Unknown error'
-				}`,
-				'error'
-			);
-
-			return;
+		if (!supabaseSaved) {
+			const currentQuotes = db.getQuotations();
+			currentQuotes.push({
+				id: newQuoteId,
+				requestId: selectedRequestId,
+				vendorId: currentUser.vendorId,
+				price: Number(bidPrice),
+				deliveryTimeDays: Number(deliveryTime),
+				warrantyMonths: Number(warranty),
+				attachmentUrl: null,
+				terms: termsInput || 'Standard delivery terms apply.',
+				status: 'Submitted',
+				recommendationScore: 80,
+				isLowestPrice: false,
+				createdAt: new Date().toISOString()
+			});
+			db.saveQuotations(currentQuotes);
 		}
 
 		await loadQuotations();
@@ -377,11 +433,11 @@
 		termsInput = '';
 	}
 
-	async function acceptQuote(quoteId) {
+	async function acceptQuote(/** @type {any} */ quoteId) {
 		if (!currentUser) return;
 
 		const targetQuote = quotationsData.find(
-			(q) => q.id === quoteId
+			(/** @type {any} */ q) => q.id === quoteId
 		);
 
 		if (!targetQuote) return;
@@ -389,146 +445,6 @@
 		const targetVendor = getVendor(
 			targetQuote.vendorId
 		);
-
-		const { error: acceptError } =
-			await supabase
-				.from('quotations')
-				.update({
-					status: 'Accepted',
-					recommendation_score:
-						targetQuote.recommendationScore
-				})
-				.eq('id', quoteId);
-
-		if (acceptError) {
-			console.error(
-				'Failed to accept quotation:',
-				acceptError
-			);
-
-			globalStore.showToast(
-				`Failed to accept quotation: ${
-					acceptError.message ||
-					'Unknown error'
-				}`,
-				'error'
-			);
-
-			return;
-		}
-
-		const { error: rejectError } =
-			await supabase
-				.from('quotations')
-				.update({
-					status: 'Rejected'
-				})
-				.eq('request_id', selectedRequestId)
-				.neq('id', quoteId);
-
-		if (rejectError) {
-			console.error(
-				'Failed to reject other quotations:',
-				rejectError
-			);
-		}
-
-		const {
-			data: existingPOs,
-			error: poFetchError
-		} = await supabase
-			.from('purchase_orders')
-			.select('po_number');
-
-		if (poFetchError) {
-			console.error(
-				'Failed to load purchase orders:',
-				poFetchError
-			);
-
-			globalStore.showToast(
-				`Quotation accepted, but purchase order could not be created: ${
-					poFetchError.message ||
-					'Unknown error'
-				}`,
-				'error'
-			);
-
-			await loadQuotations();
-			return;
-		}
-
-		const currentYear =
-			new Date().getFullYear();
-
-		const yearPOs = (
-			existingPOs || []
-		).filter(
-			(po) =>
-				typeof po.po_number === 'string' &&
-				po.po_number.startsWith(
-					`PO-${currentYear}-`
-				)
-		);
-
-		const nextPoNumber =
-			'PO-' +
-			currentYear +
-			'-' +
-			String(yearPOs.length + 1).padStart(
-				4,
-				'0'
-			);
-
-		const newPo = {
-			id:
-				'po-' +
-				Math.random()
-					.toString(36)
-					.substring(2, 9),
-			request_id: selectedRequestId,
-			po_number: nextPoNumber,
-			vendor_id: targetQuote.vendorId,
-			total_amount: Number(
-				targetQuote.price
-			),
-			terms_and_conditions:
-				targetQuote.terms ||
-				'Standard terms and conditions apply.',
-			status: 'Draft',
-			created_by_id: currentUser.id,
-			created_at:
-				new Date().toISOString()
-		};
-
-		console.log(
-			'Creating purchase order:',
-			newPo
-		);
-
-		const {
-			error: poInsertError
-		} = await supabase
-			.from('purchase_orders')
-			.insert(newPo);
-
-		if (poInsertError) {
-			console.error(
-				'Failed to create purchase order:',
-				poInsertError
-			);
-
-			globalStore.showToast(
-				`Purchase order creation failed: ${
-					poInsertError.message ||
-					'Unknown error'
-				}`,
-				'error'
-			);
-
-			await loadQuotations();
-			return;
-		}
 
 		const vendorName =
 			targetVendor?.name ||
@@ -539,12 +455,123 @@
 				: 'Vendor');
 
 		globalStore.showToast(
-			`Bid awarded! Purchase Order ${nextPoNumber} generated as Draft.`,
+			`Opening Razorpay payment modal for ₹${targetQuote.price.toLocaleString()}...`,
+			'info'
+		);
+
+		const paymentResult = await processRazorpayPayment({
+			amount: targetQuote.price,
+			title: 'Award Stock Contract',
+			description: `Stock Bid Payment to ${vendorName}`,
+			receipt: `quote_${quoteId.substring(0, 10)}`,
+			notes: {
+				quote_id: quoteId,
+				request_id: selectedRequestId,
+				vendor_id: targetQuote.vendorId
+			},
+			prefill: {
+				name: currentUser.fullName || currentUser.username || 'Manager',
+				email: currentUser.email || 'manager@procurement.com'
+			}
+		});
+
+		if (!paymentResult.success) {
+			globalStore.showToast(
+				`Payment Cancelled or Failed: ${paymentResult.error || 'Bid not awarded.'}`,
+				'error'
+			);
+			return;
+		}
+
+		globalStore.showToast(
+			`Payment Verified! Txn ID: ${paymentResult.paymentId}`,
 			'success'
 		);
 
-		console.log(
-			`Accepted quote from ${vendorName} for ₹${targetQuote.price}`
+		// Update Quotations status
+		try {
+			await supabase
+				.from('quotations')
+				.update({
+					status: 'Accepted',
+					recommendation_score: targetQuote.recommendationScore
+				})
+				.eq('id', quoteId);
+
+			await supabase
+				.from('quotations')
+				.update({ status: 'Rejected' })
+				.eq('request_id', selectedRequestId)
+				.neq('id', quoteId);
+		} catch (e) {
+			console.warn('Supabase update failed:', e);
+		}
+
+		// Local DB update
+		const localQuotes = db.getQuotations();
+		localQuotes.forEach((/** @type {any} */ q) => {
+			if ((q.requestId || q.request_id) === selectedRequestId) {
+				if (q.id === quoteId) {
+					q.status = 'Accepted';
+				} else {
+					q.status = 'Rejected';
+				}
+			}
+		});
+		db.saveQuotations(localQuotes);
+
+		// Generate Purchase Order
+		const currentYear = new Date().getFullYear();
+		const localPOs = db.getPurchaseOrders();
+		const yearPOs = localPOs.filter(
+			(/** @type {any} */ po) => typeof po.poNumber === 'string' && po.poNumber.startsWith(`PO-${currentYear}-`)
+		);
+		const nextPoNumber = 'PO-' + currentYear + '-' + String(yearPOs.length + 1).padStart(4, '0');
+
+		const newPo = {
+			id: 'po-' + Math.random().toString(36).substring(2, 9),
+			requestId: selectedRequestId,
+			request_id: selectedRequestId,
+			poNumber: nextPoNumber,
+			po_number: nextPoNumber,
+			vendorId: targetQuote.vendorId,
+			vendor_id: targetQuote.vendorId,
+			totalAmount: Number(targetQuote.price),
+			total_amount: Number(targetQuote.price),
+			termsAndConditions: targetQuote.terms || 'Standard terms and conditions apply.',
+			status: 'Issued',
+			createdById: currentUser.id,
+			created_by_id: currentUser.id,
+			createdAt: new Date().toISOString()
+		};
+
+		try {
+			await supabase.from('purchase_orders').insert({
+				id: newPo.id,
+				request_id: selectedRequestId,
+				po_number: nextPoNumber,
+				vendor_id: targetQuote.vendorId,
+				total_amount: Number(targetQuote.price),
+				terms_and_conditions: targetQuote.terms || 'Standard terms and conditions apply.',
+				status: 'Issued',
+				created_by_id: currentUser.id
+			});
+		} catch (e) {
+			console.warn('Supabase PO insert failed:', e);
+		}
+
+		localPOs.unshift(newPo);
+		db.savePurchaseOrders(localPOs);
+
+		db.logAction(
+			currentUser?.id || '',
+			'Award Contract & Pay',
+			`Awarded contract to ${vendorName} for ₹${targetQuote.price.toLocaleString()} and generated PO ${nextPoNumber}`
+		);
+
+		globalStore.showToast(
+			`Bid awarded & Payment completed! Purchase Order ${nextPoNumber} generated.`,
+			'success'
 		);
 
 		await loadQuotations();

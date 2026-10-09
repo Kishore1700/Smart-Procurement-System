@@ -1,6 +1,8 @@
 import { db } from '../db/mockDb';
 import { supabase } from '../supabase';
 
+const SESSION_TIMEOUT_MS = 15 * 60 * 1000; // 15 Minutes
+
 class GlobalStore {
 currentUser = $state(null);
 theme = $state('light');
@@ -9,26 +11,33 @@ searchQuery = $state('');
 toasts = $state([]);
 notifications = $state([]);
 activeRole = $state('Guest');
-
+sessionCheckInterval = null;
 
 constructor() {
 	if (typeof window !== 'undefined') {
 		const savedUser = localStorage.getItem('current_user');
+		const loginTime = localStorage.getItem('login_timestamp');
 
-		if (savedUser) {
-			try {
-				const parsed = JSON.parse(savedUser);
-				this.currentUser = parsed;
-				this.activeRole = parsed.role || 'Guest';
-				this.loadNotifications(parsed.id);
-			} catch (error) {
-				console.error('Failed to restore saved user session:', error);
-				localStorage.removeItem('current_user');
+		if (savedUser && loginTime) {
+			const elapsed = Date.now() - Number(loginTime);
+			if (elapsed >= SESSION_TIMEOUT_MS) {
+				this.clearSession();
+			} else {
+				try {
+					const parsed = JSON.parse(savedUser);
+					this.currentUser = parsed;
+					this.activeRole = parsed.role || 'Guest';
+					this.loadNotifications(parsed.id);
+					this.startSessionTimer();
+				} catch (error) {
+					this.clearSession();
+				}
 			}
+		} else {
+			this.clearSession();
 		}
 
 		const savedTheme = localStorage.getItem('theme');
-
 		if (savedTheme === 'light' || savedTheme === 'dark') {
 			this.theme = savedTheme;
 		} else {
@@ -36,6 +45,31 @@ constructor() {
 		}
 
 		this.applyTheme();
+	}
+}
+
+startSessionTimer() {
+	if (typeof window === 'undefined') return;
+	if (this.sessionCheckInterval) clearInterval(this.sessionCheckInterval);
+
+	this.sessionCheckInterval = setInterval(() => {
+		if (!this.currentUser) return;
+		const loginTime = localStorage.getItem('login_timestamp');
+		if (loginTime) {
+			const elapsed = Date.now() - Number(loginTime);
+			if (elapsed >= SESSION_TIMEOUT_MS) {
+				this.autoLogout();
+			}
+		}
+	}, 5000);
+}
+
+autoLogout() {
+	if (this.sessionCheckInterval) clearInterval(this.sessionCheckInterval);
+	this.clearSession();
+	this.showToast('Session expired (15-min limit reached). Please log in again.', 'warning');
+	if (typeof window !== 'undefined') {
+		window.location.href = '/login';
 	}
 }
 
@@ -53,10 +87,6 @@ async login(user) {
 				)
 				.eq('email', email)
 				.maybeSingle();
-
-			if (error) {
-				console.error('Could not load procurement user:', error);
-			}
 
 			if (data) {
 				finalUser = {
@@ -79,38 +109,27 @@ async login(user) {
 		this.activeRole = finalUser.role || 'Employee';
 
 		if (typeof window !== 'undefined') {
-			localStorage.setItem(
-				'current_user',
-				JSON.stringify(finalUser)
-			);
+			localStorage.setItem('current_user', JSON.stringify(finalUser));
+			localStorage.setItem('login_timestamp', String(Date.now()));
+			this.startSessionTimer();
 		}
 
 		this.loadNotifications(finalUser.id);
-
 		this.showToast('Logged in successfully', 'success');
 
 		try {
-			db.logAction(
-				finalUser.id,
-				'User Login',
-				'Logged in from IP client session.'
-			);
-		} catch (error) {
-			console.warn('Local audit logging skipped:', error);
-		}
+			db.logAction(finalUser.id, 'User Login', 'Logged in from IP client session.');
+		} catch (error) {}
 
 		return finalUser;
 	} catch (error) {
-		console.error('Login role loading failed:', error);
-
 		this.currentUser = user;
 		this.activeRole = user?.role || 'Employee';
 
 		if (typeof window !== 'undefined') {
-			localStorage.setItem(
-				'current_user',
-				JSON.stringify(user)
-			);
+			localStorage.setItem('current_user', JSON.stringify(user));
+			localStorage.setItem('login_timestamp', String(Date.now()));
+			this.startSessionTimer();
 		}
 
 		this.loadNotifications(user?.id);
@@ -121,32 +140,32 @@ async login(user) {
 }
 
 clearSession() {
+	if (this.sessionCheckInterval) clearInterval(this.sessionCheckInterval);
 	this.currentUser = null;
 	this.activeRole = 'Guest';
 	this.notifications = [];
 
 	if (typeof window !== 'undefined') {
 		localStorage.removeItem('current_user');
+		localStorage.removeItem('login_timestamp');
 	}
 }
 
 async logout() {
 	if (this.currentUser) {
 		try {
-			db.logAction(
-				this.currentUser.id,
-				'User Logout',
-				'Logged out of session.'
-			);
-		} catch (error) {
-			console.warn('Local audit logging skipped:', error);
-		}
+			db.logAction(this.currentUser.id, 'User Logout', 'Logged out of session.');
+		} catch (error) {}
 
-		await supabase.auth.signOut();
+		try {
+			await supabase.auth.signOut();
+		} catch (e) {}
 
 		this.clearSession();
-
 		this.showToast('Logged out successfully', 'info');
+		if (typeof window !== 'undefined') {
+			window.location.href = '/login';
+		}
 	}
 }
 

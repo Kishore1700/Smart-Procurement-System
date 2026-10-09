@@ -83,24 +83,13 @@ const initialDepartments = [
 	}
 ];
 
-// Seed Users (passwords are dummy 'password')
+// Seed Users with exact specified credentials
 const initialUsers = [
 	{
-		id: 'user-emp1',
-		username: 'employee',
-		email: 'employee@enterprise.com',
-		role: 'Employee',
-		departmentId: 'dept-electronics',
-		vendorId: null,
-		fullName: 'Alice Johnson',
-		status: 'Active',
-		avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
-		createdAt: '2026-01-10T08:00:00Z'
-	},
-	{
 		id: 'user-mgr1',
-		username: 'admin',
+		username: 'headadmin',
 		email: 'head@gmail.com',
+		password: 'Head@123',
 		role: 'Manager',
 		departmentId: 'dept-electronics',
 		vendorId: null,
@@ -110,16 +99,56 @@ const initialUsers = [
 		createdAt: '2026-01-05T09:00:00Z'
 	},
 	{
+		id: 'user-emp1',
+		username: 'employee',
+		email: 'employee@gmail.com',
+		password: 'Employee@123',
+		role: 'Employee',
+		departmentId: 'dept-electronics',
+		vendorId: null,
+		fullName: 'Standard Employee',
+		status: 'Active',
+		avatarUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
+		createdAt: '2026-01-10T08:00:00Z'
+	},
+	{
 		id: 'user-ven1',
-		username: 'acme_vendor',
-		email: 'sales@acme.com',
+		username: 'vendor1',
+		email: 'vendor1@gmail.com',
+		password: 'Vendor1@123',
 		role: 'Vendor',
 		departmentId: null,
-		vendorId: 'vendor-acme',
-		fullName: 'John Acme',
+		vendorId: 'vendor-apex',
+		fullName: 'Apex Vendor 1',
 		status: 'Active',
 		avatarUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
 		createdAt: '2026-01-12T14:20:00Z'
+	},
+	{
+		id: 'user-ven2',
+		username: 'vendor2',
+		email: 'vendor2@gmail.com',
+		password: 'Vendor2@123',
+		role: 'Vendor',
+		departmentId: null,
+		vendorId: 'vendor-acme',
+		fullName: 'ACME Vendor 2',
+		status: 'Active',
+		avatarUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
+		createdAt: '2026-01-15T11:00:00Z'
+	},
+	{
+		id: 'user-ven3',
+		username: 'vendor3',
+		email: 'vendor3@gmail.com',
+		password: 'Vendor3@123',
+		role: 'Vendor',
+		departmentId: null,
+		vendorId: 'vendor-global',
+		fullName: 'Global Vendor 3',
+		status: 'Active',
+		avatarUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
+		createdAt: '2026-01-20T09:30:00Z'
 	}
 ];
 
@@ -166,28 +195,132 @@ const initialVendors = [
 	}
 ];
 
-// Seed Purchase Requests (Empty for clean production setup)
-const initialPurchaseRequests = [];
+// Seed Purchase Requests
+const initialPurchaseRequests = [
+	{
+		id: 'pr-101',
+		title: 'Laptops and Desktops Procurement',
+		description: 'High performance workstations for Engineering team',
+		departmentId: 'dept-electronics',
+		requesterId: 'user-emp1',
+		category: 'Computer Hardware',
+		priority: 'High',
+		estimatedCost: 150000,
+		attachmentUrl: null,
+		status: 'Approved',
+		currentApproverId: 'user-mgr1',
+		budgetStatus: 'Valid',
+		createdAt: '2026-03-01T10:00:00Z',
+		items: [
+			{ id: 'item-1', itemName: 'Workstation Laptop i9', quantity: 5, unitPrice: 25000, estimatedCost: 125000 },
+			{ id: 'item-2', itemName: '4K Monitors 27"', quantity: 5, unitPrice: 5000, estimatedCost: 25000 }
+		]
+	},
+	{
+		id: 'pr-102',
+		title: 'Ergonomic Office Chairs & Desks',
+		description: 'Replacement furniture for main floor',
+		departmentId: 'dept-furniture',
+		requesterId: 'user-emp1',
+		category: 'Office Furniture',
+		priority: 'Medium',
+		estimatedCost: 80000,
+		attachmentUrl: null,
+		status: 'Approved',
+		currentApproverId: 'user-mgr1',
+		budgetStatus: 'Valid',
+		createdAt: '2026-03-05T14:20:00Z',
+		items: [
+			{ id: 'item-3', itemName: 'Executive Mesh Chair', quantity: 10, unitPrice: 5000, estimatedCost: 50000 },
+			{ id: 'item-4', itemName: 'Adjustable Standing Desk', quantity: 5, unitPrice: 6000, estimatedCost: 30000 }
+		]
+	}
+];
 
-// Seed Approvals (Empty for clean production setup)
+// Seed Approvals
 const initialApprovals = [];
 
-// Seed Quotations (Empty for clean production setup)
-const initialQuotations = [];
+// Seed Quotations
+const initialQuotations = [
+	{
+		id: 'q-101',
+		requestId: 'pr-101',
+		vendorId: 'vendor-apex',
+		price: 145000,
+		deliveryTimeDays: 4,
+		warrantyMonths: 24,
+		terms: 'Net 30 days payment. 2 Years onsite warranty included.',
+		status: 'Submitted',
+		recommendationScore: 94,
+		isLowestPrice: true,
+		createdAt: '2026-03-02T09:30:00Z'
+	},
+	{
+		id: 'q-102',
+		requestId: 'pr-101',
+		vendorId: 'vendor-acme',
+		price: 149000,
+		deliveryTimeDays: 7,
+		warrantyMonths: 12,
+		terms: 'Standard delivery terms apply.',
+		status: 'Submitted',
+		recommendationScore: 82,
+		isLowestPrice: false,
+		createdAt: '2026-03-02T11:15:00Z'
+	},
+	{
+		id: 'q-103',
+		requestId: 'pr-102',
+		vendorId: 'vendor-acme',
+		price: 78000,
+		deliveryTimeDays: 5,
+		warrantyMonths: 12,
+		terms: 'Free assembly and delivery included.',
+		status: 'Submitted',
+		recommendationScore: 88,
+		isLowestPrice: true,
+		createdAt: '2026-03-06T10:00:00Z'
+	}
+];
 
-// Seed Purchase Orders (Empty for clean production setup)
-const initialPurchaseOrders = [];
+// Seed Purchase Orders
+const initialPurchaseOrders = [
+	{
+		id: 'po-101',
+		requestId: 'pr-101',
+		poNumber: 'PO-2026-0001',
+		vendorId: 'vendor-apex',
+		totalAmount: 145000,
+		termsAndConditions: 'Net 30 days. Full 24-month warranty.',
+		status: 'Approved',
+		createdById: 'user-mgr1',
+		createdAt: '2026-03-03T15:00:00Z'
+	}
+];
 
-// Seed Deliveries (Empty for clean production setup)
+// Seed Deliveries
 const initialDeliveries = [];
 
-// Seed Invoices (Empty for clean production setup)
-const initialInvoices = [];
+// Seed Invoices
+const initialInvoices = [
+	{
+		id: 'inv-101',
+		poNumber: 'PO-2026-0001',
+		invoiceNumber: 'INV-2026-8901',
+		amount: 145000,
+		attachmentUrl: '/uploads/invoice_doc.pdf',
+		status: 'Verified',
+		submittedAt: '2026-03-04T11:30:00Z',
+		verifiedAt: '2026-03-05T09:00:00Z',
+		verifiedById: 'user-mgr1',
+		paidAt: null
+	}
+];
 
-// Seed Notifications (Empty for clean production setup)
+// Seed Notifications
 const initialNotifications = [];
 
-// Seed Audit Logs (Empty for clean production setup)
+// Seed Audit Logs
 const initialAuditLogs = [];
 
 // Database state accessor
@@ -233,19 +366,13 @@ class MockDatabase {
 	// USERS
 	getUsers() {
 		let users = this.get('users', initialUsers);
-		const validRoles = ['Employee', 'Manager', 'Vendor'];
-		const hasLegacyRoles = users.some((u) => !validRoles.includes(u.role));
-		if (hasLegacyRoles) {
+		const requiredEmails = ['head@gmail.com', 'employee@gmail.com', 'vendor1@gmail.com', 'vendor2@gmail.com', 'vendor3@gmail.com'];
+		const hasAllNewUsers = requiredEmails.every((em) => users.some((u) => u.email === em));
+		if (!hasAllNewUsers) {
 			if (typeof window !== 'undefined') {
-				setTimeout(() => this.reset(), 0);
+				this.set('users', initialUsers);
 			}
 			return initialUsers;
-		}
-		const mgrIdx = users.findIndex((u) => u.role === 'Manager' || u.id === 'user-mgr1');
-		if (mgrIdx !== -1 && users[mgrIdx].email !== 'head@gmail.com') {
-			users[mgrIdx].email = 'head@gmail.com';
-			users[mgrIdx].fullName = 'Head Admin';
-			this.saveUsers(users);
 		}
 		return users;
 	}

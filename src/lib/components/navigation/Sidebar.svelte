@@ -181,19 +181,6 @@
 					<LogOut class="w-4.5 h-4.5" />
 				</button>
 			</div>
-
-			<button
-				onclick={() => globalStore.logout()}
-				class="w-full py-2.5 px-3 rounded-xl bg-rose-500/10 dark:bg-rose-950/30 hover:bg-rose-600 hover:text-white dark:hover:bg-rose-600 dark:hover:text-white border border-rose-200 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 text-xs font-bold transition-all duration-200 flex items-center justify-center gap-2 shadow-xs group"
-			>
-				<LogOut class="w-4 h-4 transition-transform group-hover:-translate-x-0.5" />
-
-				{#if isExpanded}
-					<span class="tracking-wide uppercase text-[11px] font-extrabold">
-						Logout Account
-					</span>
-				{/if}
-			</button>
 		{/if}
 	</div>
 </aside>

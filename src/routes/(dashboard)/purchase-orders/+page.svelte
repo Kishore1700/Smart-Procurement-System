@@ -3,6 +3,7 @@
 	import { globalStore } from '$lib/stores/globalStore.svelte';
 	import { db } from '$lib/db/mockDb';
 	import { supabase } from '$lib/supabase';
+	import { processRazorpayPayment } from '$lib/razorpay';
 	import { CreditCard, Printer } from '@lucide/svelte';
 
 	let role = $derived(globalStore.currentUser?.role || 'Employee');
@@ -21,113 +22,97 @@
 		loading = true;
 		loadError = '';
 
+		let fetchedPOs = [];
+		let fetchedVendors = [];
+		let fetchedPRs = [];
+
 		try {
 			const { data: poData, error: poError } = await supabase
 				.from('purchase_orders')
 				.select('*')
 				.order('created_at', { ascending: false });
 
-			console.log('PURCHASE ORDERS DATA:', poData);
-			console.log('PURCHASE ORDERS ERROR:', poError);
-
-			if (poError) {
-				console.error('Failed to load purchase orders:', poError);
-				loadError = poError.message || 'Failed to load purchase orders.';
-				purchaseOrders = [];
-				globalStore.showToast(
-					`Failed to load purchase orders: ${poError.message}`,
-					'error'
-				);
-				return;
+			if (!poError && poData && poData.length > 0) {
+				fetchedPOs = poData.map((po) => ({
+					id: po.id,
+					requestId: po.request_id ?? null,
+					poNumber: po.po_number || `PO-${po.id}`,
+					vendorId: po.vendor_id ?? null,
+					totalAmount: Number(po.total_amount || 0),
+					termsAndConditions:
+						po.terms_and_conditions ||
+						'Standard terms and conditions apply.',
+					status: po.status || 'Draft',
+					createdById: po.created_by_id ?? null,
+					createdAt: po.created_at || new Date().toISOString()
+				}));
 			}
 
-			const list = (poData || []).map((po) => ({
+			const { data: vendorData } = await supabase.from('vendors').select('*');
+			if (vendorData && vendorData.length > 0) fetchedVendors = vendorData;
+
+			const { data: requestData } = await supabase.from('purchase_requests').select('*');
+			if (requestData && requestData.length > 0) fetchedPRs = requestData;
+		} catch (e) {
+			console.warn('Supabase PO load failed, using mockDb fallback:', e);
+		}
+
+		if (fetchedPOs.length === 0) {
+			const localPOs = db.getPurchaseOrders();
+			fetchedPOs = localPOs.map((po) => ({
 				id: po.id,
-				requestId: po.request_id ?? null,
-				poNumber: po.po_number || `PO-${po.id}`,
-				vendorId: po.vendor_id ?? null,
-				totalAmount: Number(po.total_amount || 0),
-				termsAndConditions:
-					po.terms_and_conditions ||
-					'Standard terms and conditions apply.',
+				requestId: po.requestId || po.request_id || null,
+				poNumber: po.poNumber || po.po_number || `PO-${po.id}`,
+				vendorId: po.vendorId || po.vendor_id || null,
+				totalAmount: Number(po.totalAmount || po.total_amount || 0),
+				termsAndConditions: po.termsAndConditions || po.terms_and_conditions || 'Standard terms and conditions apply.',
 				status: po.status || 'Draft',
-				createdById: po.created_by_id ?? null,
-				createdAt: po.created_at || new Date().toISOString()
+				createdById: po.createdById || po.created_by_id || null,
+				createdAt: po.createdAt || po.created_at || new Date().toISOString()
 			}));
+		}
 
-			const { data: vendorData, error: vendorError } = await supabase
-				.from('vendors')
-				.select('*');
+		if (fetchedVendors.length === 0) {
+			fetchedVendors = db.getVendors();
+		}
 
-			if (vendorError) {
-				console.warn('Failed to load vendors:', vendorError);
-				vendors = [];
-			} else {
-				vendors = vendorData || [];
-				console.log('Loaded vendors:', vendorData);
-			}
+		if (fetchedPRs.length === 0) {
+			fetchedPRs = db.getPurchaseRequests();
+		}
 
-			const { data: requestData, error: requestError } = await supabase
-				.from('purchase_requests')
-				.select('*');
+		vendors = fetchedVendors;
+		purchaseRequests = fetchedPRs;
 
-			if (requestError) {
-				console.warn('Failed to load purchase requests:', requestError);
-				purchaseRequests = [];
-			} else {
-				purchaseRequests = requestData || [];
-				console.log('Loaded purchase requests:', requestData);
-			}
+		let filteredList = fetchedPOs;
 
-			let filteredList = list;
-
-			if (role === 'Vendor' && currentUser?.vendorId) {
-				filteredList = filteredList.filter(
-					(po) => String(po.vendorId) === String(currentUser.vendorId)
-				);
-			}
-
-			const q = String(globalStore.searchQuery || '').toLowerCase().trim();
-
-			if (q) {
-				filteredList = filteredList.filter((po) => {
-					const poNumber = String(po.poNumber || '').toLowerCase();
-					const status = String(po.status || '').toLowerCase();
-					return poNumber.includes(q) || status.includes(q);
-				});
-			}
-
-			purchaseOrders = filteredList;
-
-			console.log('FINAL PURCHASE ORDERS:', filteredList);
-
-			if (purchaseOrders.length > 0) {
-				const selectedExists = purchaseOrders.some(
-					(po) => po.id === selectedPoId
-				);
-
-				if (!selectedPoId || !selectedExists) {
-					selectedPoId = purchaseOrders[0].id;
-				}
-			} else {
-				selectedPoId = null;
-			}
-		} catch (error) {
-			console.error('Unexpected Purchase Order loading error:', error);
-
-			loadError =
-				error?.message ||
-				'Unexpected error while loading Purchase Orders.';
-
-			purchaseOrders = [];
-			selectedPoId = null;
-
-			globalStore.showToast(
-				'Unable to load Purchase Orders.',
-				'error'
+		if (role === 'Vendor' && currentUser?.vendorId) {
+			filteredList = filteredList.filter(
+				(po) => String(po.vendorId) === String(currentUser.vendorId)
 			);
-		} finally {
-			loading = false;
+		}
+
+		const q = String(globalStore.searchQuery || '').toLowerCase().trim();
+		if (q) {
+			filteredList = filteredList.filter((po) => {
+				const poNumber = String(po.poNumber || '').toLowerCase();
+				const status = String(po.status || '').toLowerCase();
+				return poNumber.includes(q) || status.includes(q);
+			});
+		}
+
+		purchaseOrders = filteredList;
+		loading = false;
+
+		if (purchaseOrders.length > 0) {
+			const selectedExists = purchaseOrders.some(
+				(po) => po.id === selectedPoId
+			);
+
+			if (!selectedPoId || !selectedExists) {
+				selectedPoId = purchaseOrders[0].id;
+			}
+		} else {
+			selectedPoId = null;
 		}
 	}
 
@@ -198,25 +183,49 @@
 		if (action === 'Approve') {
 			newStatus = 'Approved';
 		} else if (action === 'Issue') {
+			globalStore.showToast(`Opening Razorpay modal for PO ${po.poNumber} payment (₹${po.totalAmount.toLocaleString()})...`, 'info');
+
+			const paymentResult = await processRazorpayPayment({
+				amount: po.totalAmount,
+				title: 'Issue Purchase Order Payment',
+				description: `Payment for PO ${po.poNumber}`,
+				receipt: `po_${poId.substring(0, 10)}`,
+				notes: {
+					po_id: poId,
+					po_number: po.poNumber
+				},
+				prefill: {
+					name: currentUser?.fullName || currentUser?.username || 'Procurement Officer',
+					email: currentUser?.email || 'officer@procurement.com'
+				}
+			});
+
+			if (!paymentResult.success) {
+				globalStore.showToast(`Payment Cancelled or Failed: ${paymentResult.error || 'PO not issued.'}`, 'error');
+				return;
+			}
+
+			globalStore.showToast(`Payment Verified! Txn ID: ${paymentResult.paymentId}`, 'success');
 			newStatus = 'Issued';
 		} else {
 			return;
 		}
 
-		const { error } = await supabase
-			.from('purchase_orders')
-			.update({ status: newStatus })
-			.eq('id', poId);
+		try {
+			await supabase
+				.from('purchase_orders')
+				.update({ status: newStatus })
+				.eq('id', poId);
+		} catch (e) {
+			console.warn('Supabase PO update failed:', e);
+		}
 
-		if (error) {
-			console.error('Purchase order update failed:', error);
-
-			globalStore.showToast(
-				`Purchase order update failed: ${error.message}`,
-				'error'
-			);
-
-			return;
+		// Local DB update
+		const localPOs = db.getPurchaseOrders();
+		const poIdx = localPOs.findIndex((p) => p.id === poId || p.poNumber === po.poNumber);
+		if (poIdx !== -1) {
+			localPOs[poIdx].status = newStatus;
+			db.savePurchaseOrders(localPOs);
 		}
 
 		purchaseOrders = purchaseOrders.map((item) =>

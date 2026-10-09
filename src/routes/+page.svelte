@@ -1,5 +1,6 @@
 <script>
 	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
 	import { globalStore } from '$lib/stores/globalStore.svelte';
 	import {
 		ShieldCheck,
@@ -16,6 +17,12 @@
 		Lock,
 		Check
 	} from '@lucide/svelte';
+
+	onMount(() => {
+		if (!globalStore.currentUser) {
+			goto('/login');
+		}
+	});
 
 	function handleEnterPortal() {
 		if (globalStore.currentUser) {

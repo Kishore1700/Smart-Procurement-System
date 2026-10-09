@@ -18,11 +18,7 @@
 		Check
 	} from '@lucide/svelte';
 
-	onMount(() => {
-		if (!globalStore.currentUser) {
-			goto('/login');
-		}
-	});
+
 
 	function handleEnterPortal() {
 		if (globalStore.currentUser) {

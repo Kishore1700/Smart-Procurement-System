@@ -1,5 +1,5 @@
 import { db } from '../db/mockDb';
-import { supabase } from '../supabase';
+import { supabase, withTimeout } from '../supabase';
 
 const SESSION_TIMEOUT_MS = 15 * 60 * 1000; // 15 Minutes
 
@@ -75,68 +75,58 @@ autoLogout() {
 
 async login(user) {
 	let finalUser = { ...user };
+	this.currentUser = finalUser;
+	this.activeRole = finalUser.role || 'Employee';
+
+	if (typeof window !== 'undefined') {
+		localStorage.setItem('current_user', JSON.stringify(finalUser));
+		localStorage.setItem('login_timestamp', String(Date.now()));
+		this.startSessionTimer();
+	}
+
+	this.loadNotifications(finalUser.id);
+	this.showToast('Logged in successfully', 'success');
 
 	try {
-		const email = user?.email;
+		db.logAction(finalUser.id, 'User Login', 'Logged in from IP client session.');
+	} catch (error) {}
 
-		if (email) {
-			const { data, error } = await supabase
+	const email = user?.email;
+	if (email) {
+		withTimeout(
+			supabase
 				.from('users')
 				.select(
 					'id, username, email, role, department_id, vendor_id, full_name, status, avatar_url, created_at'
 				)
 				.eq('email', email)
-				.maybeSingle();
-
+				.maybeSingle(),
+			800
+		).then(({ data }) => {
 			if (data) {
-				finalUser = {
+				const updatedUser = {
 					...finalUser,
 					id: data.id,
 					username: data.username || email,
 					email: data.email || email,
-					role: data.role || 'Employee',
-					departmentId: data.department_id,
-					vendorId: data.vendor_id,
-					fullName: data.full_name || email,
+					role: data.role || finalUser.role || 'Employee',
+					departmentId: data.department_id || finalUser.departmentId,
+					vendorId: data.vendor_id || finalUser.vendorId,
+					fullName: data.full_name || finalUser.fullName || email,
 					status: data.status || 'Active',
-					avatarUrl: data.avatar_url || null,
-					createdAt: data.created_at || null
+					avatarUrl: data.avatar_url || finalUser.avatarUrl,
+					createdAt: data.created_at || finalUser.createdAt
 				};
+				this.currentUser = updatedUser;
+				this.activeRole = updatedUser.role;
+				if (typeof window !== 'undefined') {
+					localStorage.setItem('current_user', JSON.stringify(updatedUser));
+				}
 			}
-		}
-
-		this.currentUser = finalUser;
-		this.activeRole = finalUser.role || 'Employee';
-
-		if (typeof window !== 'undefined') {
-			localStorage.setItem('current_user', JSON.stringify(finalUser));
-			localStorage.setItem('login_timestamp', String(Date.now()));
-			this.startSessionTimer();
-		}
-
-		this.loadNotifications(finalUser.id);
-		this.showToast('Logged in successfully', 'success');
-
-		try {
-			db.logAction(finalUser.id, 'User Login', 'Logged in from IP client session.');
-		} catch (error) {}
-
-		return finalUser;
-	} catch (error) {
-		this.currentUser = user;
-		this.activeRole = user?.role || 'Employee';
-
-		if (typeof window !== 'undefined') {
-			localStorage.setItem('current_user', JSON.stringify(user));
-			localStorage.setItem('login_timestamp', String(Date.now()));
-			this.startSessionTimer();
-		}
-
-		this.loadNotifications(user?.id);
-		this.showToast('Logged in successfully', 'success');
-
-		return user;
+		}).catch(() => {});
 	}
+
+	return finalUser;
 }
 
 clearSession() {

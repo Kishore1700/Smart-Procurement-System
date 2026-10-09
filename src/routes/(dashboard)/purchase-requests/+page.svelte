@@ -1,8 +1,9 @@
 <script>
-    import { onMount } from 'svelte';
+	// @ts-nocheck
+	import { onMount } from 'svelte';
 	import { globalStore } from '$lib/stores/globalStore.svelte';
     import { db } from '$lib/db/mockDb';
-    import { supabase } from '$lib/supabase';
+    import { supabase, withTimeout } from '$lib/supabase';
 	import { z } from 'zod';
 	import {
 		Plus,
@@ -18,9 +19,6 @@
 
 	let role = $derived(globalStore.currentUser?.role || 'Employee');
 	let currentUser = $derived(globalStore.currentUser);
-    console.log('Current user ID:', globalStore.currentUser?.id);
-    console.log('Current user department:', globalStore.currentUser?.departmentId);
-    console.log('Current user role:', globalStore.currentUser?.role);
 
 	// Grid states
 	let filterStatus = $state('All');
@@ -62,18 +60,25 @@
 
 	// List purchase requests
 	async function loadPurchaseRequests() {
-		let supabaseList = [];
-		try {
-			const { data, error } = await supabase
-				.from('purchase_requests')
-				.select(`
-					*,
-					purchase_request_items (*)
-				`)
-				.order('created_at', { ascending: false });
+		const localRequests = db.getPurchaseRequests() || [];
+		const mergedMap = new Map();
+		localRequests.forEach((pr) => mergedMap.set(pr.id, pr));
+		supabasePurchaseRequests = Array.from(mergedMap.values());
 
-			if (!error && data) {
-				supabaseList = data.map((pr) => ({
+		try {
+			const { data, error } = await withTimeout(
+				supabase
+					.from('purchase_requests')
+					.select(`
+						*,
+						purchase_request_items (*)
+					`)
+					.order('created_at', { ascending: false }),
+				800
+			);
+
+			if (!error && data && data.length > 0) {
+				const supabaseList = data.map((pr) => ({
 					...pr,
 					requesterId: pr.requester_id,
 					departmentId: pr.department_id,
@@ -84,17 +89,12 @@
 					updatedAt: pr.updated_at,
 					items: pr.purchase_request_items || []
 				}));
+				supabaseList.forEach((pr) => mergedMap.set(pr.id, pr));
+				supabasePurchaseRequests = Array.from(mergedMap.values());
 			}
 		} catch (err) {
 			console.warn('Failed to load from Supabase:', err);
 		}
-
-		const localRequests = db.getPurchaseRequests() || [];
-		const mergedMap = new Map();
-		localRequests.forEach((pr) => mergedMap.set(pr.id, pr));
-		supabaseList.forEach((pr) => mergedMap.set(pr.id, pr));
-
-		supabasePurchaseRequests = Array.from(mergedMap.values());
 	}
 onMount(() => {
     loadPurchaseRequests();

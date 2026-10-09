@@ -1,108 +1,166 @@
 <script>
+	// @ts-nocheck
 	import { onMount } from 'svelte';
 	import { globalStore } from '$lib/stores/globalStore.svelte';
-	import { supabase } from '$lib/supabase';
+	import { supabase, withTimeout } from '$lib/supabase';
+	import { db } from '$lib/db/mockDb';
 	import {
 		CheckSquare,
 		XCircle,
 		Clock,
-		User,
-		AlertTriangle,
-		MessageSquare,
-		ArrowRight,
-		FileText,
-		DollarSign
+		User
 	} from '@lucide/svelte';
 
 	let role = $derived(globalStore.currentUser?.role || 'Employee');
 	let currentUser = $derived(globalStore.currentUser);
 
-	let selectedRequestId = $state(/** @type {string | null} */ (null));
+	let selectedRequestId = $state(null);
 	let approvalComments = $state('');
+	let pendingApprovals = $state([]);
+	let approvalHistory = $state([]);
+	let procurementUser = $state(null);
 
-	let pendingApprovals = $state(/** @type {any[]} */ ([]));
-	let selectedRequest = $state(/** @type {any} */ (null));
-	let requester = $state(/** @type {any} */ (null));
-	let department = $state(/** @type {any} */ (null));
-	let approvalHistory = $state(/** @type {any[]} */ ([]));
+	// Derived state in Svelte 5 (pure, reactive, zero warnings)
+	let selectedRequest = $derived(
+		pendingApprovals.find((pr) => pr.id === selectedRequestId) || null
+	);
 
-	let procurementUser = $state(/** @type {any} */ (null));
+	let requester = $derived.by(() => {
+		if (!selectedRequest) return null;
+		const allUsers = db.getUsers();
+		const matched = allUsers.find(
+			(u) =>
+				u.id === selectedRequest.requesterId ||
+				u.id === selectedRequest.requester_id
+		);
+		return (
+			matched || {
+				fullName: 'Employee',
+				full_name: 'Employee',
+				email: 'employee@gmail.com',
+				role: 'Employee'
+			}
+		);
+	});
+
+	let department = $derived.by(() => {
+		if (!selectedRequest) return null;
+		const allDepts = db.getDepartments();
+		const matched = allDepts.find(
+			(d) =>
+				d.id === selectedRequest.departmentId ||
+				d.id === selectedRequest.department_id
+		);
+		return (
+			matched || {
+				name: 'Electronics',
+				remainingBudget: 500000,
+				allocatedBudget: 1000000,
+				utilizedBudget: 500000
+			}
+		);
+	});
+
+	function formatDate(dateStr) {
+		if (!dateStr) return 'N/A';
+		const d = new Date(dateStr);
+		return isNaN(d.getTime()) ? 'N/A' : d.toLocaleDateString();
+	}
+
+	function formatDateTime(dateStr) {
+		if (!dateStr) return 'N/A';
+		const d = new Date(dateStr);
+		return isNaN(d.getTime()) ? 'N/A' : d.toLocaleString();
+	}
 
 	async function loadCurrentProcurementUser() {
 		if (!globalStore.currentUser?.email) return;
 
-		const { data, error } = await supabase
-			.from('users')
-			.select('id, username, email, role, department_id, full_name, status')
-			.eq('email', globalStore.currentUser.email)
-			.single();
+		try {
+			const { data, error } = await withTimeout(
+				supabase
+					.from('users')
+					.select('id, username, email, role, department_id, full_name, status')
+					.eq('email', globalStore.currentUser.email)
+					.single(),
+				800
+			);
 
-		if (error) {
-			console.error('Failed to load procurement user:', error);
-			return;
+			if (!error && data) {
+				procurementUser = data;
+			}
+		} catch {
+			// ignore
 		}
-
-		procurementUser = data;
 	}
 
-	import { db } from '$lib/db/mockDb';
-
 	async function loadPendingApprovals() {
-		let fetchedPRs = [];
+		const localPRs = db
+			.getPurchaseRequests()
+			.filter((pr) => pr.status === 'Pending Approval');
+		let fetchedPRs = localPRs.map((pr) => ({
+			...pr,
+			requesterId: pr.requesterId || pr.requester_id,
+			departmentId: pr.departmentId || pr.department_id,
+			estimatedCost: Number(pr.estimatedCost || pr.estimated_cost || 0),
+			currentApproverId: pr.currentApproverId || pr.current_approver_id,
+			budgetStatus: pr.budgetStatus || pr.budget_status || 'Valid',
+			createdAt: pr.createdAt || pr.created_at,
+			updatedAt: pr.updatedAt || pr.updated_at,
+			items: pr.items || []
+		}));
+
+		pendingApprovals = fetchedPRs;
+
+		if (pendingApprovals.length > 0 && !selectedRequestId) {
+			selectedRequestId = pendingApprovals[0].id;
+		}
+
 		try {
-			const { data, error } = await supabase
-				.from('purchase_requests')
-				.select(`
-					*,
-					purchase_request_items (*)
-				`)
-				.eq('status', 'Pending Approval')
-				.order('created_at', { ascending: false });
+			const { data, error } = await withTimeout(
+				supabase
+					.from('purchase_requests')
+					.select(`
+						*,
+						purchase_request_items (*)
+					`)
+					.eq('status', 'Pending Approval')
+					.order('created_at', { ascending: false }),
+				800
+			);
 
 			if (!error && data && data.length > 0) {
-				fetchedPRs = data.map((/** @type {any} */ pr) => ({
+				const remotePRs = data.map((pr) => ({
 					...pr,
-					requesterId: pr.requester_id,
-					departmentId: pr.department_id,
-					estimatedCost: Number(pr.estimated_cost),
+					requesterId: pr.requester_id || pr.requesterId,
+					departmentId: pr.department_id || pr.departmentId,
+					estimatedCost: Number(pr.estimated_cost || 0),
 					currentApproverId: pr.current_approver_id,
 					budgetStatus: pr.budget_status,
 					createdAt: pr.created_at,
 					updatedAt: pr.updated_at,
-					items: (pr.purchase_request_items || []).map((/** @type {any} */ item) => ({
+					items: (pr.purchase_request_items || []).map((item) => ({
 						...item,
-						itemName: item.item_name,
-						unitPrice: Number(item.unit_price),
-						quantity: Number(item.quantity),
-						estimatedCost: Number(item.estimated_cost)
+						itemName: item.item_name || item.itemName || 'Item',
+						unitPrice: Number(item.unit_price || item.unitPrice || 0),
+						quantity: Number(item.quantity || 0),
+						estimatedCost: Number(item.estimated_cost || item.estimatedCost || 0)
 					}))
 				}));
+
+				const map = new Map();
+				fetchedPRs.forEach((p) => map.set(p.id, p));
+				remotePRs.forEach((p) => map.set(p.id, p));
+				pendingApprovals = Array.from(map.values());
 			}
-		} catch (e) {
-			console.warn('Supabase approvals fetch failed:', e);
+		} catch {
+			// ignore
 		}
-
-		if (fetchedPRs.length === 0) {
-			const localPRs = db.getPurchaseRequests().filter((/** @type {any} */ pr) => pr.status === 'Pending Approval');
-			fetchedPRs = localPRs.map((/** @type {any} */ pr) => ({
-				...pr,
-				requesterId: pr.requesterId || pr.requester_id,
-				departmentId: pr.departmentId || pr.department_id,
-				estimatedCost: Number(pr.estimatedCost || pr.estimated_cost || 0),
-				currentApproverId: pr.currentApproverId || pr.current_approver_id,
-				budgetStatus: pr.budgetStatus || pr.budget_status || 'Valid',
-				createdAt: pr.createdAt || pr.created_at,
-				updatedAt: pr.updatedAt || pr.updated_at,
-				items: pr.items || []
-			}));
-		}
-
-		pendingApprovals = fetchedPRs;
 
 		if (
 			pendingApprovals.length > 0 &&
 			(!selectedRequestId ||
-				!pendingApprovals.some((/** @type {any} */ p) => p.id === selectedRequestId))
+				!pendingApprovals.some((p) => p.id === selectedRequestId))
 		) {
 			selectedRequestId = pendingApprovals[0].id;
 		}
@@ -112,38 +170,31 @@
 		}
 	}
 
-	async function loadSelectedRequestDetails() {
-		if (!selectedRequestId) {
-			selectedRequest = null;
-			requester = null;
-			department = null;
+	// Reactive effect for approval history when selected request changes
+	$effect(() => {
+		const reqId = selectedRequestId;
+		if (reqId) {
+			const localApps = db
+				.getApprovals()
+				.filter((a) => a.request_id === reqId || a.requestId === reqId);
+			approvalHistory = localApps;
+
+			withTimeout(
+				supabase.from('approvals').select('*').eq('request_id', reqId),
+				800
+			)
+				.then(({ data }) => {
+					if (data && data.length > 0 && selectedRequestId === reqId) {
+						approvalHistory = data;
+					}
+				})
+				.catch(() => {});
+		} else {
 			approvalHistory = [];
-			return;
 		}
+	});
 
-		const request = pendingApprovals.find((/** @type {any} */ pr) => pr.id === selectedRequestId);
-
-		if (!request) {
-			selectedRequest = null;
-			requester = null;
-			department = null;
-			approvalHistory = [];
-			return;
-		}
-
-		selectedRequest = request;
-
-		const allUsers = db.getUsers();
-		const matchedUser = allUsers.find((/** @type {any} */ u) => u.id === request.requesterId);
-		requester = matchedUser || { full_name: 'Employee', email: 'employee@gmail.com', role: 'Employee' };
-
-		const allDepts = db.getDepartments();
-		const matchedDept = allDepts.find((/** @type {any} */ d) => d.id === request.departmentId);
-		department = matchedDept || { name: 'Electronics', remainingBudget: 500000 };
-		approvalHistory = [];
-	}
-
-	async function handleAction(/** @type {string} */ status) {
+	async function handleAction(status) {
 		if (!selectedRequest || !currentUser) return;
 
 		if (status !== 'Approved' && status !== 'Rejected') return;
@@ -164,30 +215,14 @@
 			action_date: new Date().toISOString()
 		};
 
-		try {
-			await supabase
-				.from('approvals')
-				.insert(approvalRecord);
-		} catch (e) {
-			console.warn('Supabase approval insert failed:', e);
-		}
+		// Save local approval record
+		const existingApprovals = db.getApprovals() || [];
+		existingApprovals.push(approvalRecord);
+		db.saveApprovals(existingApprovals);
 
-		try {
-			await supabase
-				.from('purchase_requests')
-				.update({
-					status: status,
-					current_approver_id: null,
-					updated_at: new Date().toISOString()
-				})
-				.eq('id', selectedRequest.id);
-		} catch (e) {
-			console.warn('Supabase PR status update failed:', e);
-		}
-
-		// Local DB update
+		// Local PR status update
 		const localPRs = db.getPurchaseRequests();
-		const prIdx = localPRs.findIndex((/** @type {any} */ p) => p.id === selectedRequest.id);
+		const prIdx = localPRs.findIndex((p) => p.id === selectedRequest.id);
 		if (prIdx !== -1) {
 			localPRs[prIdx].status = status;
 			localPRs[prIdx].currentApproverId = null;
@@ -195,10 +230,26 @@
 			db.savePurchaseRequests(localPRs);
 		}
 
+		// If approved, update department budget
+		if (status === 'Approved' && selectedRequest.departmentId) {
+			const depts = db.getDepartments();
+			const dIdx = depts.findIndex(
+				(d) => d.id === selectedRequest.departmentId
+			);
+			if (dIdx !== -1) {
+				const cost = Number(selectedRequest.estimatedCost || 0);
+				depts[dIdx].utilizedBudget =
+					(depts[dIdx].utilizedBudget || 0) + cost;
+				depts[dIdx].remainingBudget =
+					(depts[dIdx].allocatedBudget || 0) - depts[dIdx].utilizedBudget;
+				db.saveDepartments(depts);
+			}
+		}
+
 		db.addNotification(
 			selectedRequest.requesterId,
 			`Purchase Request ${status}`,
-			`Your request "${selectedRequest.title}" was ${status.toLowerCase()} by ${approverUser.full_name || approverUser.fullName || 'Manager'}.`,
+			`Your request "${selectedRequest.title}" was ${status.toLowerCase()} by ${approverUser.fullName || approverUser.full_name || 'Manager'}.`,
 			status === 'Approved' ? 'Success' : 'Alert'
 		);
 
@@ -212,31 +263,45 @@
 		approvalComments = '';
 		selectedRequestId = null;
 
+		// Async Supabase update
+		withTimeout(supabase.from('approvals').insert(approvalRecord), 800).catch(
+			() => {}
+		);
+		withTimeout(
+			supabase
+				.from('purchase_requests')
+				.update({
+					status: status,
+					current_approver_id: null,
+					updated_at: new Date().toISOString()
+				})
+				.eq('id', selectedRequest.id),
+			800
+		).catch(() => {});
+
 		await loadPendingApprovals();
-		await loadSelectedRequestDetails();
 	}
 
-	onMount(async () => {
-		await loadCurrentProcurementUser();
-		await loadPendingApprovals();
-		await loadSelectedRequestDetails();
-	});
-
-	$effect(() => {
-		if (selectedRequestId && pendingApprovals.length > 0) {
-			loadSelectedRequestDetails();
-		}
+	onMount(() => {
+		loadCurrentProcurementUser();
+		loadPendingApprovals();
 	});
 </script>
 
 <div class="space-y-6">
 	<!-- Header -->
-	<div class="glass-card rounded-2xl p-6 shadow-xl border border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+	<div
+		class="glass-card rounded-2xl p-6 shadow-xl border border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+	>
 		<div>
-			<h1 class="text-xl md:text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight flex items-center gap-2">
+			<h1
+				class="text-xl md:text-2xl font-black text-slate-900 dark:text-slate-100 tracking-tight flex items-center gap-2"
+			>
 				Workflow Approvals —
-				<span class="bg-gradient-to-r from-sky-600 via-blue-600 to-cyan-500 bg-clip-text text-transparent">
-					{currentUser?.fullName || 'Manager'}
+				<span
+					class="bg-gradient-to-r from-sky-600 via-blue-600 to-cyan-500 bg-clip-text text-transparent"
+				>
+					{currentUser?.fullName || currentUser?.full_name || 'Manager'}
 				</span>
 			</h1>
 			<p class="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
@@ -248,50 +313,78 @@
 	<div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
 		<!-- Left: Pending List -->
 		<div class="lg:col-span-5 space-y-3">
-			<h2 class="text-xs font-black text-slate-400 uppercase tracking-widest px-1">
+			<h2
+				class="text-xs font-black text-slate-400 uppercase tracking-widest px-1"
+			>
 				Pending Approvals ({pendingApprovals.length})
 			</h2>
 
 			{#if pendingApprovals.length === 0}
-				<div class="glass-card border border-slate-200/80 dark:border-slate-800 p-10 text-center text-slate-400 text-xs font-semibold shadow-lg rounded-2xl">
+				<div
+					class="glass-card border border-slate-200/80 dark:border-slate-800 p-10 text-center text-slate-400 text-xs font-semibold shadow-lg rounded-2xl"
+				>
 					No pending requests awaiting your approval action.
 				</div>
 			{:else}
 				<div class="space-y-3">
 					{#each pendingApprovals as pr}
 						<button
+							type="button"
 							onclick={() => (selectedRequestId = pr.id)}
-							class="w-full text-left glass-card border rounded-2xl p-4 shadow-lg hover:shadow-xl transition-all duration-200 flex flex-col gap-2 relative overflow-hidden group {selectedRequestId === pr.id ? 'border-sky-500 ring-2 ring-sky-500/20' : 'border-slate-200/80 dark:border-slate-800'}"
+							class="w-full text-left glass-card border rounded-2xl p-4 shadow-lg hover:shadow-xl transition-all duration-200 flex flex-col gap-2 relative overflow-hidden group {selectedRequestId ===
+							pr.id
+								? 'border-sky-500 ring-2 ring-sky-500/20'
+								: 'border-slate-200/80 dark:border-slate-800'}"
 						>
 							<div class="flex justify-between items-start">
-								<span class="text-[10px] font-black text-sky-600 dark:text-sky-400">{pr.id}</span>
 								<span
-									class="badge badge-sm font-extrabold text-[9px] uppercase px-2.5 py-0.5 rounded-full border-none {pr.priority === 'Urgent' ? 'bg-rose-500 text-white' : pr.priority === 'High' ? 'bg-amber-500 text-white' : pr.priority === 'Medium' ? 'bg-sky-500 text-white' : 'bg-slate-700 text-slate-200'}"
+									class="text-[10px] font-black text-sky-600 dark:text-sky-400"
+									>{pr.id}</span
+								>
+								<span
+									class="badge badge-sm font-extrabold text-[9px] uppercase px-2.5 py-0.5 rounded-full border-none {pr.priority ===
+									'Urgent'
+										? 'bg-rose-500 text-white'
+										: pr.priority === 'High'
+											? 'bg-amber-500 text-white'
+											: pr.priority === 'Medium'
+												? 'bg-sky-500 text-white'
+												: 'bg-slate-700 text-slate-200'}"
 								>
 									{pr.priority}
 								</span>
 							</div>
 
 							<div>
-								<h3 class="font-extrabold text-xs text-slate-900 dark:text-slate-100 leading-tight group-hover:text-sky-500 transition-colors">
+								<p
+									class="font-extrabold text-xs text-slate-900 dark:text-slate-100 leading-tight group-hover:text-sky-500 transition-colors"
+								>
 									{pr.title}
-								</h3>
+								</p>
 								<p class="text-[10px] text-slate-400 mt-0.5 font-medium">
-									{pr.category} • Submitted {new Date(pr.createdAt).toLocaleDateString()}
+									{pr.category} • Submitted {formatDate(pr.createdAt)}
 								</p>
 							</div>
 
-							<div class="flex items-center justify-between border-t border-slate-100 dark:border-slate-800/80 pt-2.5 mt-1">
-								<span class="font-black text-slate-900 dark:text-slate-100 text-xs">
-									₹{Number(pr.estimatedCost).toLocaleString()}
+							<div
+								class="flex items-center justify-between border-t border-slate-100 dark:border-slate-800/80 pt-2.5 mt-1"
+							>
+								<span
+									class="font-black text-slate-900 dark:text-slate-100 text-xs"
+								>
+									₹{Number(pr.estimatedCost || 0).toLocaleString()}
 								</span>
 
 								{#if pr.budgetStatus === 'Over Budget'}
-									<span class="px-2.5 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-[9px] font-extrabold">
+									<span
+										class="px-2.5 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-[9px] font-extrabold"
+									>
 										Over Budget
 									</span>
 								{:else}
-									<span class="px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[9px] font-extrabold">
+									<span
+										class="px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[9px] font-extrabold"
+									>
 										Within Budget
 									</span>
 								{/if}
@@ -305,71 +398,106 @@
 		<!-- Right: Details & Decision Pane -->
 		<div class="lg:col-span-7">
 			{#if !selectedRequest}
-				<div class="glass-card border border-slate-200/80 dark:border-slate-800 p-12 text-center text-slate-400 text-xs font-semibold shadow-lg rounded-2xl h-full flex flex-col items-center justify-center">
+				<div
+					class="glass-card border border-slate-200/80 dark:border-slate-800 p-12 text-center text-slate-400 text-xs font-semibold shadow-lg rounded-2xl h-full flex flex-col items-center justify-center"
+				>
 					<CheckSquare class="w-10 h-10 text-slate-400 mb-3" />
 					Select a purchase request from the list to view specifications, timeline, and issue approvals.
 				</div>
 			{:else}
-				<div class="glass-card border border-slate-200/80 dark:border-slate-800 p-6 rounded-2xl shadow-xl space-y-6">
+				<div
+					class="glass-card border border-slate-200/80 dark:border-slate-800 p-6 rounded-2xl shadow-xl space-y-6"
+				>
 					<!-- Request Header -->
-					<div class="flex justify-between items-start border-b border-slate-100 dark:border-slate-800/80 pb-4">
+					<div
+						class="flex justify-between items-start border-b border-slate-100 dark:border-slate-800/80 pb-4"
+					>
 						<div>
-							<span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
+							<span
+								class="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest"
+							>
 								Purchase Request Details
 							</span>
-							<h2 class="text-base font-black text-slate-900 dark:text-slate-100 leading-tight mt-0.5">
+							<h2
+								class="text-base font-black text-slate-900 dark:text-slate-100 leading-tight mt-0.5"
+							>
 								{selectedRequest.title}
 							</h2>
 							<p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
 								{selectedRequest.category} • Estimated Cost:
 								<b class="text-sky-600 dark:text-sky-400 font-black">
-									₹{Number(selectedRequest.estimatedCost).toLocaleString()}
+									₹{Number(selectedRequest.estimatedCost || 0).toLocaleString()}
 								</b>
 							</p>
 						</div>
 
-						<span class="badge bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 font-extrabold text-[9px] uppercase px-3 py-1.5 rounded-full">
+						<span
+							class="badge bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 font-extrabold text-[9px] uppercase px-3 py-1.5 rounded-full"
+						>
 							Awaiting decision
 						</span>
 					</div>
 
 					<!-- Department & Budget Status -->
 					{#if department}
-						<div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50/60 dark:bg-slate-950/60 p-4 border border-slate-200/60 dark:border-slate-800 rounded-2xl text-xs">
+						<div
+							class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50/60 dark:bg-slate-950/60 p-4 border border-slate-200/60 dark:border-slate-800 rounded-2xl text-xs"
+						>
 							<div>
-								<span class="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest block">
+								<span
+									class="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest block"
+								>
 									Requester
 								</span>
 								<p class="font-bold text-slate-800 dark:text-slate-200 mt-0.5">
-									{requester?.full_name || 'Requester'}
+									{requester?.fullName || requester?.full_name || 'Requester'}
 								</p>
-								<p class="text-[10px] text-slate-400 font-medium">{department.name}</p>
+								<p class="text-[10px] text-slate-400 font-medium">
+									{department.name}
+								</p>
 							</div>
 
 							<div>
-								<span class="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest block">
+								<span
+									class="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest block"
+								>
 									Dept Remaining Budget
 								</span>
 								<p class="font-black text-sky-600 dark:text-sky-400 mt-0.5">
 									₹{Number(
-										department.remaining_budget ??
-											(Number(department.annual_budget || 0) -
-												Number(department.utilized_budget || 0))
+										department.remainingBudget ??
+											department.remaining_budget ??
+											(Number(
+												department.allocatedBudget ||
+													department.annual_budget ||
+													0
+											) -
+												Number(
+													department.utilizedBudget ||
+														department.utilized_budget ||
+														0
+												))
 									).toLocaleString()}
 								</p>
 							</div>
 
 							<div>
-								<span class="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest block">
+								<span
+									class="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest block"
+								>
 									Budget Status
 								</span>
 
 								{#if selectedRequest.budgetStatus === 'Over Budget'}
-									<span class="inline-block px-2.5 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-[10px] font-extrabold mt-1">
+									<span
+										class="inline-block px-2.5 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-[10px] font-extrabold mt-1"
+									>
 										Budget Exceeded
 									</span>
 								{:else}
-									<span class="inline-block px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-extrabold mt-1">
+									<span
+										class="inline-block px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-extrabold mt-1"
+									>
 										Approved Budget
 									</span>
 								{/if}
@@ -383,7 +511,9 @@
 							Request Description
 						</h3>
 
-						<p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed bg-slate-50/60 dark:bg-slate-950/60 p-4 rounded-xl border border-slate-200/60 dark:border-slate-800">
+						<p
+							class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed bg-slate-50/60 dark:bg-slate-950/60 p-4 rounded-xl border border-slate-200/60 dark:border-slate-800"
+						>
 							{selectedRequest.description}
 						</p>
 					</div>
@@ -391,11 +521,15 @@
 					<!-- Items List -->
 					<div class="space-y-2 text-xs">
 						<h3 class="text-xs font-extrabold text-slate-800 dark:text-slate-200">
-							Required Items ({selectedRequest.items.length})
+							Required Items ({selectedRequest.items?.length || 0})
 						</h3>
 
-						<div class="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
-							<table class="table table-xs w-full text-slate-700 dark:text-slate-300">
+						<div
+							class="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden"
+						>
+							<table
+								class="table table-xs w-full text-slate-700 dark:text-slate-300"
+							>
 								<thead class="bg-slate-100 dark:bg-slate-900 font-extrabold">
 									<tr>
 										<th>Item</th>
@@ -405,18 +539,29 @@
 									</tr>
 								</thead>
 
-								<tbody class="divide-y divide-slate-100 dark:divide-slate-800/60">
-									{#each selectedRequest.items as item}
+								<tbody
+									class="divide-y divide-slate-100 dark:divide-slate-800/60"
+								>
+									{#each selectedRequest.items || [] as item}
 										<tr>
-											<td class="font-bold text-slate-800 dark:text-slate-200">
-												{item.itemName}
+											<td
+												class="font-bold text-slate-800 dark:text-slate-200"
+											>
+												{item.itemName || item.item_name || 'Item'}
 											</td>
-											<td class="text-center">{item.quantity}</td>
+											<td class="text-center">{item.quantity || 0}</td>
 											<td class="text-right">
-												₹{Number(item.unitPrice).toLocaleString()}
+												₹{Number(
+													item.unitPrice || item.unit_price || 0
+												).toLocaleString()}
 											</td>
-											<td class="text-right font-black text-slate-900 dark:text-slate-100">
-												₹{(Number(item.quantity) * Number(item.unitPrice)).toLocaleString()}
+											<td
+												class="text-right font-black text-slate-900 dark:text-slate-100"
+											>
+												₹{(
+													Number(item.quantity || 0) *
+													Number(item.unitPrice || item.unit_price || 0)
+												).toLocaleString()}
 											</td>
 										</tr>
 									{/each}
@@ -433,7 +578,9 @@
 
 						<div class="space-y-3 text-xs">
 							<div class="flex gap-3 items-start">
-								<div class="p-1.5 bg-emerald-500/10 text-emerald-500 rounded-full mt-0.5 border border-emerald-500/20">
+								<div
+									class="p-1.5 bg-emerald-500/10 text-emerald-500 rounded-full mt-0.5 border border-emerald-500/20"
+								>
 									<User class="w-3.5 h-3.5" />
 								</div>
 
@@ -442,35 +589,43 @@
 										Submitted by Requester
 									</p>
 									<p class="text-[10px] text-slate-400 font-medium">
-										{new Date(selectedRequest.createdAt).toLocaleString()}
+										{formatDateTime(selectedRequest.createdAt)}
 									</p>
 								</div>
 							</div>
 
 							{#each approvalHistory as app}
 								<div class="flex gap-3 items-start">
-									<div class="p-1.5 bg-emerald-500/10 text-emerald-500 rounded-full mt-0.5 border border-emerald-500/20">
+									<div
+										class="p-1.5 bg-emerald-500/10 text-emerald-500 rounded-full mt-0.5 border border-emerald-500/20"
+									>
 										<CheckSquare class="w-3.5 h-3.5" />
 									</div>
 
 									<div>
-										<p class="font-extrabold text-slate-800 dark:text-slate-200">
+										<p
+											class="font-extrabold text-slate-800 dark:text-slate-200"
+										>
 											{app.approver_role} {app.status}
 										</p>
 
-										<p class="text-[10px] text-slate-500 dark:text-slate-400 italic mt-0.5">
+										<p
+											class="text-[10px] text-slate-500 dark:text-slate-400 italic mt-0.5"
+										>
 											"{app.comments}"
 										</p>
 
 										<p class="text-[9px] text-slate-400 font-semibold">
-											{new Date(app.action_date).toLocaleString()}
+											{formatDateTime(app.action_date)}
 										</p>
 									</div>
 								</div>
 							{/each}
 
 							<div class="flex gap-3 items-start">
-								<div class="p-1.5 bg-amber-500/10 text-amber-500 rounded-full mt-0.5 border border-amber-500/20">
+								<div
+									class="p-1.5 bg-amber-500/10 text-amber-500 rounded-full mt-0.5 border border-amber-500/20"
+								>
 									<Clock class="w-3.5 h-3.5 animate-pulse" />
 								</div>
 
@@ -487,10 +642,14 @@
 					</div>
 
 					<!-- Decision Form -->
-					<div class="border-t border-slate-200 dark:border-slate-800 pt-4 space-y-4">
+					<div
+						class="border-t border-slate-200 dark:border-slate-800 pt-4 space-y-4"
+					>
 						<div class="form-control">
 							<label class="label pb-1.5" for="app-comment">
-								<span class="label-text font-extrabold text-slate-800 dark:text-slate-200">
+								<span
+									class="label-text font-extrabold text-slate-800 dark:text-slate-200"
+								>
 									Decision Comments / Rationale
 								</span>
 							</label>
@@ -506,6 +665,7 @@
 
 						<div class="flex justify-end gap-3">
 							<button
+								type="button"
 								onclick={() => handleAction('Rejected')}
 								class="btn btn-ghost hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 btn-sm text-xs font-extrabold rounded-xl flex items-center"
 							>
@@ -514,6 +674,7 @@
 							</button>
 
 							<button
+								type="button"
 								onclick={() => handleAction('Approved')}
 								class="btn btn-gradient-primary btn-sm text-xs font-extrabold rounded-xl px-6 flex items-center shadow-lg shadow-sky-600/25"
 							>

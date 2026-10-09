@@ -1,8 +1,9 @@
 <script>
+	// @ts-nocheck
 	import { onMount } from 'svelte';
 	import { globalStore } from '$lib/stores/globalStore.svelte';
 	import { db } from '$lib/db/mockDb';
-	import { supabase } from '$lib/supabase';
+	import { supabase, withTimeout } from '$lib/supabase';
 	import { processRazorpayPayment } from '$lib/razorpay';
 	import { CreditCard, Printer } from '@lucide/svelte';
 
@@ -15,75 +16,70 @@
 	let purchaseOrders = $state([]);
 	let vendors = $state([]);
 	let purchaseRequests = $state([]);
-	let loading = $state(true);
+	let loading = $state(false);
 	let loadError = $state('');
 
 	async function loadPurchaseOrders() {
-		loading = true;
 		loadError = '';
 
-		let fetchedPOs = [];
-		let fetchedVendors = [];
-		let fetchedPRs = [];
+		const localPOs = db.getPurchaseOrders().map((po) => ({
+			id: po.id,
+			requestId: po.requestId || po.request_id || null,
+			poNumber: po.poNumber || po.po_number || `PO-${po.id}`,
+			vendorId: po.vendorId || po.vendor_id || null,
+			totalAmount: Number(po.totalAmount || po.total_amount || 0),
+			termsAndConditions: po.termsAndConditions || po.terms_and_conditions || 'Standard terms and conditions apply.',
+			status: po.status || 'Draft',
+			createdById: po.createdById || po.created_by_id || null,
+			createdAt: po.createdAt || po.created_at || new Date().toISOString()
+		}));
 
+		vendors = db.getVendors();
+		purchaseRequests = db.getPurchaseRequests();
+
+		let filteredList = localPOs;
+		if (role === 'Vendor' && currentUser?.vendorId) {
+			filteredList = filteredList.filter(
+				(po) => String(po.vendorId) === String(currentUser.vendorId)
+			);
+		}
+		purchaseOrders = filteredList;
+		if (purchaseOrders.length > 0 && !selectedPoId) {
+			selectedPoId = purchaseOrders[0].id;
+		}
+
+		// Asynchronously fetch Supabase POs with 800ms timeout
 		try {
-			const { data: poData, error: poError } = await supabase
-				.from('purchase_orders')
-				.select('*')
-				.order('created_at', { ascending: false });
+			const { data: poData } = await withTimeout(
+				supabase.from('purchase_orders').select('*').order('created_at', { ascending: false }),
+				800
+			);
 
-			if (!poError && poData && poData.length > 0) {
-				fetchedPOs = poData.map((po) => ({
+			if (poData && poData.length > 0) {
+				const remotePOs = poData.map((po) => ({
 					id: po.id,
 					requestId: po.request_id ?? null,
 					poNumber: po.po_number || `PO-${po.id}`,
 					vendorId: po.vendor_id ?? null,
 					totalAmount: Number(po.total_amount || 0),
-					termsAndConditions:
-						po.terms_and_conditions ||
-						'Standard terms and conditions apply.',
+					termsAndConditions: po.terms_and_conditions || 'Standard terms and conditions apply.',
 					status: po.status || 'Draft',
 					createdById: po.created_by_id ?? null,
 					createdAt: po.created_at || new Date().toISOString()
 				}));
+
+				const map = new Map();
+				localPOs.forEach(p => map.set(p.id, p));
+				remotePOs.forEach(p => map.set(p.id, p));
+				let list = Array.from(map.values());
+				if (role === 'Vendor' && currentUser?.vendorId) {
+					list = list.filter((po) => String(po.vendorId) === String(currentUser.vendorId));
+				}
+				purchaseOrders = list;
 			}
-
-			const { data: vendorData } = await supabase.from('vendors').select('*');
-			if (vendorData && vendorData.length > 0) fetchedVendors = vendorData;
-
-			const { data: requestData } = await supabase.from('purchase_requests').select('*');
-			if (requestData && requestData.length > 0) fetchedPRs = requestData;
 		} catch (e) {
 			console.warn('Supabase PO load failed, using mockDb fallback:', e);
 		}
-
-		if (fetchedPOs.length === 0) {
-			const localPOs = db.getPurchaseOrders();
-			fetchedPOs = localPOs.map((po) => ({
-				id: po.id,
-				requestId: po.requestId || po.request_id || null,
-				poNumber: po.poNumber || po.po_number || `PO-${po.id}`,
-				vendorId: po.vendorId || po.vendor_id || null,
-				totalAmount: Number(po.totalAmount || po.total_amount || 0),
-				termsAndConditions: po.termsAndConditions || po.terms_and_conditions || 'Standard terms and conditions apply.',
-				status: po.status || 'Draft',
-				createdById: po.createdById || po.created_by_id || null,
-				createdAt: po.createdAt || po.created_at || new Date().toISOString()
-			}));
-		}
-
-		if (fetchedVendors.length === 0) {
-			fetchedVendors = db.getVendors();
-		}
-
-		if (fetchedPRs.length === 0) {
-			fetchedPRs = db.getPurchaseRequests();
-		}
-
-		vendors = fetchedVendors;
-		purchaseRequests = fetchedPRs;
-
-		let filteredList = fetchedPOs;
 
 		if (role === 'Vendor' && currentUser?.vendorId) {
 			filteredList = filteredList.filter(

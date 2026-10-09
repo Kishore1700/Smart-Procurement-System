@@ -1,4 +1,6 @@
 <script>
+	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
 	import { globalStore } from '$lib/stores/globalStore.svelte';
 	import { db } from '$lib/db/mockDb';
 	import ChartCard from '$lib/components/dashboard/ChartCard.svelte';
@@ -21,6 +23,12 @@
 
 	let currentUser = $derived(globalStore.currentUser);
 	let role = $derived(globalStore.currentUser?.role || 'Employee');
+
+	onMount(() => {
+		if (role === 'Employee') {
+			goto('/purchase-requests');
+		}
+	});
 
 	// Recalculate stats dynamically from mock DB reactively
 	let stats = $derived.by(() => {

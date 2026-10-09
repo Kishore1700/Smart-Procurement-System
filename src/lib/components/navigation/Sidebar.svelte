@@ -27,7 +27,7 @@
 				label: 'Dashboard',
 				href: '/dashboard',
 				icon: LayoutDashboard,
-				roles: ['Employee', 'Manager', 'Vendor']
+				roles: ['Manager', 'Vendor']
 			},
 			{
 				label: 'Purchase Requests',

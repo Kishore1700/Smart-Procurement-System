@@ -274,31 +274,41 @@
 					);
 				});
 
-				const deliveries = db.getDeliveries();
+				const deliveries = db.getDeliveries() || [];
+				const vendor = (db.getVendors() || []).find((v) => v.id === po.vendorId || v.vendorId === po.vendorId);
+				const pr = (db.getPurchaseRequests() || []).find((r) => r.id === po.requestId || r.request_id === po.requestId);
 
 				const newDelivery = {
-					id:
-						'del-' +
-						Math.random().toString(36).substring(2, 8),
+					id: 'del-' + Math.random().toString(36).substring(2, 8),
 					poNumber: po.poNumber,
+					po_number: po.poNumber,
+					requestId: po.requestId,
+					vendorId: po.vendorId,
+					vendor_id: po.vendorId,
+					vendorName: vendor?.name || 'Authorized Supplier',
+					totalAmount: po.totalAmount,
+					paymentStatus: 'Paid',
+					paymentId: issuedPaymentId || `pay_verified_${Date.now()}`,
 					status: 'Pending',
 					trackingNumber:
 						'TRK-' +
-						Math.random()
-							.toString(36)
-							.substring(2, 8)
-							.toUpperCase(),
-					carrier: 'DHL Express',
-					estimatedDeliveryDate: new Date(
-						Date.now() + 5 * 24 * 60 * 60 * 1000
-					).toISOString(),
+						new Date().getFullYear() +
+						'-' +
+						Math.random().toString(36).substring(2, 8).toUpperCase(),
+					carrier: 'BlueDart Express',
+					estimatedDeliveryDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
 					actualDeliveryDate: null,
-					notes: 'Awaiting shipping confirmation from vendor.',
+					notes: `Order payment verified via Razorpay (${issuedPaymentId || 'Verified'}). Awaiting vendor shipping dispatch.`,
+					items: (pr?.items || []).map((it) => ({
+						name: it.itemName || it.name || 'Deliverable Item',
+						quantity: Number(it.quantity) || 1,
+						unitPrice: Number(it.unitPrice) || 0
+					})),
 					itemsReceived: [],
 					createdAt: new Date().toISOString()
 				};
 
-				deliveries.push(newDelivery);
+				deliveries.unshift(newDelivery);
 				db.saveDeliveries(deliveries);
 
 				// Generate automated vendor tax invoice and dispatch to admin

@@ -323,7 +323,39 @@
 			list[idx].paymentMethod = 'Razorpay';
 			list[idx].paymentStatus = 'Settled';
 			db.saveInvoices(list);
-			selectedInvoiceForModal = list[idx];
+		// Update or generate Delivery Tracking record for this settled PO
+		try {
+			const deliveries = db.getDeliveries() || [];
+			let existingDel = deliveries.find((d) => d.poNumber === targetInv.poNumber || d.po_number === targetInv.poNumber);
+			if (existingDel) {
+				existingDel.paymentStatus = 'Paid';
+				existingDel.paymentId = paymentResult.paymentId;
+				db.saveDeliveries(deliveries);
+			} else {
+				const trackingCode = 'TRK-' + new Date().getFullYear() + '-' + Math.random().toString(36).substring(2, 7).toUpperCase();
+				deliveries.unshift({
+					id: 'del-' + Math.random().toString(36).substring(2, 8),
+					poNumber: targetInv.poNumber,
+					po_number: targetInv.poNumber,
+					vendorId: targetVendorId,
+					vendor_id: targetVendorId,
+					vendorName: vendorDisplayName,
+					totalAmount: targetInv.amount,
+					paymentStatus: 'Paid',
+					paymentId: paymentResult.paymentId,
+					status: 'Pending',
+					carrier: 'BlueDart Express',
+					trackingNumber: trackingCode,
+					estimatedDeliveryDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+					actualDeliveryDate: null,
+					notes: `Invoice settled via Razorpay (${paymentResult.paymentId}). Awaiting vendor shipping dispatch.`,
+					items: [],
+					createdAt: new Date().toISOString()
+				});
+				db.saveDeliveries(deliveries);
+			}
+		} catch (delErr) {
+			console.warn('Delivery update note:', delErr);
 		}
 
 		globalStore.showToast(`Payment of ₹${targetInv.amount.toLocaleString()} settled for Invoice ${targetInv.invoiceNumber}! Txn ID: ${paymentResult.paymentId}`, 'success');

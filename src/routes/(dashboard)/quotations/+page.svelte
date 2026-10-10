@@ -590,6 +590,49 @@
 			console.warn('Invoice generation error:', invErr);
 		}
 
+		// Generate Delivery Tracking Record immediately upon Payment
+		try {
+			const deliveries = db.getDeliveries() || [];
+			const trackingCode = 'TRK-' + currentYear + '-' + Math.random().toString(36).substring(2, 7).toUpperCase();
+			const newDelivery = {
+				id: 'del-' + Math.random().toString(36).substring(2, 8),
+				poNumber: nextPoNumber,
+				po_number: nextPoNumber,
+				requestId: selectedRequestId,
+				vendorId: targetQuote.vendorId,
+				vendor_id: targetQuote.vendorId,
+				vendorName: vendorName,
+				totalAmount: Number(targetQuote.price),
+				paymentStatus: 'Paid',
+				paymentId: paymentResult.paymentId,
+				status: 'Pending',
+				carrier: 'BlueDart Express',
+				trackingNumber: trackingCode,
+				estimatedDeliveryDate: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(),
+				actualDeliveryDate: null,
+				notes: `Order payment verified via Razorpay (${paymentResult.paymentId}). Awaiting vendor dispatch.`,
+				items: (selectedRequest?.items || []).map((it) => ({
+					name: it.itemName || it.name || 'Deliverable Item',
+					quantity: Number(it.quantity) || 1,
+					unitPrice: Number(it.unitPrice) || 0
+				})),
+				createdAt: new Date().toISOString()
+			};
+			deliveries.unshift(newDelivery);
+			db.saveDeliveries(deliveries);
+
+			await supabase.from('deliveries').insert({
+				id: newDelivery.id,
+				po_number: nextPoNumber,
+				status: 'Pending',
+				carrier: 'BlueDart Express',
+				tracking_number: trackingCode,
+				estimated_delivery_date: newDelivery.estimatedDeliveryDate
+			});
+		} catch (delErr) {
+			console.warn('Delivery creation note:', delErr);
+		}
+
 		db.logAction(
 			currentUser?.id || '',
 			'Award Contract & Pay',

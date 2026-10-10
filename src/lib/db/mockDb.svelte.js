@@ -302,7 +302,31 @@ const initialPurchaseOrders = [
 ];
 
 // Seed Deliveries
-const initialDeliveries = [];
+const initialDeliveries = [
+	{
+		id: 'del-101',
+		poNumber: 'PO-2026-0001',
+		po_number: 'PO-2026-0001',
+		requestId: 'pr-101',
+		vendorId: 'vendor-apex',
+		vendor_id: 'vendor-apex',
+		vendorName: 'Apex IT Solutions',
+		totalAmount: 145000,
+		paymentStatus: 'Paid',
+		paymentId: 'pay_rzp_demo_8901',
+		status: 'Shipped',
+		carrier: 'BlueDart Express',
+		trackingNumber: 'TRK-2026-BLUEDART-8901',
+		estimatedDeliveryDate: '2026-03-09T18:00:00Z',
+		actualDeliveryDate: null,
+		notes: 'Dispatched via BlueDart Express Air Priority. Package in transit to destination tech hub.',
+		items: [
+			{ name: 'Workstation Laptop i9', quantity: 5, unitPrice: 25000 },
+			{ name: '4K Monitors 27"', quantity: 5, unitPrice: 5000 }
+		],
+		createdAt: '2026-03-05T10:00:00Z'
+	}
+];
 
 // Seed Invoices
 const initialInvoices = [

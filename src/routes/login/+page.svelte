@@ -14,8 +14,7 @@
 		ShieldCheck,
 		ArrowRight,
 		Sun,
-		Moon,
-		Zap
+		Moon
 	} from '@lucide/svelte';
 
 	let mode = $state('login'); // 'login' | 'register' | 'forgot'
@@ -33,21 +32,6 @@
 	let rememberMe = $state(true);
 
 	let errors = $state(/** @type {Record<string, string>} */ ({}));
-
-	// Compact Demo Roles for 1-click test
-	const demoRoles = [
-		{ label: 'Admin', email: 'head@gmail.com', pass: 'Head@123' },
-		{ label: 'Employee', email: 'employee@gmail.com', pass: 'Employee@123' },
-		{ label: 'Vendor (Apex)', email: 'vendor1@gmail.com', pass: 'Vendor1@123' },
-		{ label: 'Vendor (ACME)', email: 'vendor2@gmail.com', pass: 'Vendor2@123' }
-	];
-
-	function fillDemo(roleItem) {
-		email = roleItem.email;
-		password = roleItem.pass;
-		errors = {};
-		globalStore.showToast(`Selected ${roleItem.label} demo credentials`, 'info');
-	}
 
 	const roleSchema = z.enum(['Employee', 'Vendor']);
 
@@ -390,26 +374,6 @@
 						>
 							Create Account
 						</button>
-					</div>
-				{/if}
-
-				<!-- Compact Demo Quick Logins (Only on Login Mode, 1 clean line) -->
-				{#if mode === 'login'}
-					<div class="flex items-center gap-1.5 flex-wrap pt-0.5">
-						<span class="text-[10px] font-extrabold uppercase text-slate-500 flex items-center gap-1 mr-1">
-							<Zap class="w-3 h-3 text-amber-400" />
-							Demo:
-						</span>
-						{#each demoRoles as item}
-							<button
-								type="button"
-								onclick={() => fillDemo(item)}
-								class="px-2 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 hover:border-sky-500/40 text-[10px] font-bold text-slate-300 hover:text-white transition-all active:scale-95"
-								title={`Auto-fill ${item.label}`}
-							>
-								{item.label}
-							</button>
-						{/each}
 					</div>
 				{/if}
 

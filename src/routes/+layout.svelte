@@ -8,6 +8,7 @@
 	$effect(() => {
 		if (typeof window !== 'undefined') {
 			document.documentElement.setAttribute('data-theme', globalStore.theme);
+			document.documentElement.classList.toggle('dark', globalStore.theme === 'dark');
 		}
 	});
 </script>

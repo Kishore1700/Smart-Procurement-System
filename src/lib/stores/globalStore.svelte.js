@@ -209,10 +209,8 @@ toggleTheme() {
 
 applyTheme() {
 	if (typeof window !== 'undefined') {
-		document.documentElement.setAttribute(
-			'data-theme',
-			this.theme
-		);
+		document.documentElement.setAttribute('data-theme', this.theme);
+		document.documentElement.classList.toggle('dark', this.theme === 'dark');
 	}
 }
 

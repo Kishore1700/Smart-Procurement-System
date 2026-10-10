@@ -11,7 +11,6 @@
 		Truck,
 		Sun,
 		Moon,
-		Sparkles,
 		TrendingUp,
 		Zap,
 		Lock,
@@ -131,17 +130,6 @@
 	<main class="flex-1 max-w-7xl w-full mx-auto px-6 py-12 md:py-16 space-y-24 relative z-10">
 		<!-- Hero Section -->
 		<section class="flex flex-col items-center text-center max-w-3xl mx-auto space-y-6 pt-4">
-			<!-- Pill Badge -->
-			<div
-				class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border text-xs font-semibold tracking-wide transition-all {globalStore.theme ===
-				'dark'
-					? 'bg-slate-900/80 text-sky-400 border-sky-500/30'
-					: 'bg-white text-sky-700 border-sky-200 shadow-sm'}"
-			>
-				<Sparkles class="w-3.5 h-3.5 text-sky-500 animate-pulse" />
-				<span>Automated 3-Way Invoice Matching & Procurement</span>
-			</div>
-
 			<!-- Headline -->
 			<h1
 				class="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight leading-[1.15] {globalStore.theme ===

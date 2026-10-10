@@ -14,7 +14,13 @@
 		ShieldCheck,
 		ArrowRight,
 		Sun,
-		Moon
+		Moon,
+		Building2,
+		Phone,
+		FileText,
+		MapPin,
+		Tag,
+		Layers
 	} from '@lucide/svelte';
 
 	let mode = $state('login'); // 'login' | 'register' | 'forgot'
@@ -30,6 +36,13 @@
 	let role = $state('Employee'); // 'Employee' | 'Vendor'
 	let departmentId = $state('dept-electronics');
 	let rememberMe = $state(true);
+
+	// Vendor onboarding fields
+	let vendorCompanyName = $state('');
+	let vendorPhone = $state('');
+	let vendorGstin = $state('');
+	let vendorCategory = $state('Computer Hardware & IT');
+	let vendorAddress = $state('');
 
 	let errors = $state(/** @type {Record<string, string>} */ ({}));
 
@@ -194,28 +207,45 @@
 			return;
 		}
 
-		const result = registerSchema.safeParse({
-			fullName,
-			email,
-			password,
-			role
-		});
+		if (!fullName.trim() || fullName.trim().length < 2) {
+			errors.fullName = role === 'Vendor' ? 'Authorized contact person name is required' : 'Full name is required';
+		}
 
-		if (!result.success) {
-			result.error.issues.forEach((/** @type {any} */ issue) => {
-				const path = String(issue.path[0]);
-				errors[path] = issue.message;
-			});
+		if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+			errors.email = 'Valid corporate email address is required';
+		}
+
+		if (!password || password.length < 6) {
+			errors.password = 'Password must be at least 6 characters';
+		}
+
+		if (role === 'Vendor') {
+			if (!vendorCompanyName.trim() || vendorCompanyName.trim().length < 2) {
+				errors.vendorCompanyName = 'Company or Entity Name is required';
+			}
+			if (!vendorPhone.trim() || vendorPhone.trim().length < 7) {
+				errors.vendorPhone = 'Valid business phone number is required';
+			}
+			if (!vendorGstin.trim() || vendorGstin.trim().length < 5) {
+				errors.vendorGstin = 'Valid GSTIN or Tax Identification is required';
+			}
+			if (!vendorAddress.trim() || vendorAddress.trim().length < 3) {
+				errors.vendorAddress = 'Business address/city is required';
+			}
+		}
+
+		if (Object.keys(errors).length > 0) {
+			globalStore.showToast('Please fill in all required registration details.', 'error');
 			return;
 		}
 
 		isSubmitting = true;
-		const generatedUsername = username.trim() || email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '');
+		const cleanEmail = email.trim().toLowerCase();
+		const generatedUsername = username.trim() || cleanEmail.split('@')[0].replace(/[^a-zA-Z0-9]/g, '');
 		const avatarUrl = `https://api.dicebear.com/7.x/adventurer/svg?seed=${generatedUsername}`;
-		const assignedVendorId = role === 'Vendor' ? 'vendor-acme' : null;
 
-		const users = db.getUsers();
-		const existingUser = users.find((u) => u.email.toLowerCase() === email.trim().toLowerCase());
+		const users = db.getUsers() || [];
+		const existingUser = users.find((u) => u.email.toLowerCase() === cleanEmail);
 		if (existingUser) {
 			isSubmitting = false;
 			errors.email = 'An account with this email already exists';
@@ -223,10 +253,57 @@
 			return;
 		}
 
+		let assignedVendorId = null;
+
+		// If Vendor Partner, create and register the official Vendor profile
+		if (role === 'Vendor') {
+			assignedVendorId = 'vendor-' + Math.random().toString(36).substring(2, 8);
+			const newVendor = {
+				id: assignedVendorId,
+				name: vendorCompanyName.trim(),
+				contactPerson: fullName.trim(),
+				email: cleanEmail,
+				phone: vendorPhone.trim(),
+				address: vendorAddress.trim(),
+				gstin: vendorGstin.trim().toUpperCase(),
+				categories: [vendorCategory || 'Computer Hardware & IT'],
+				rating: 5.0,
+				performanceScore: 95,
+				status: 'Active',
+				createdAt: new Date().toISOString()
+			};
+
+			const vendors = db.getVendors() || [];
+			vendors.unshift(newVendor);
+			db.saveVendors(vendors);
+
+			// Non-blocking Supabase vendor sync
+			try {
+				await withTimeout(
+					supabase.from('vendors').insert([
+						{
+							id: assignedVendorId,
+							name: newVendor.name,
+							contact_person: newVendor.contactPerson,
+							email: newVendor.email,
+							phone: newVendor.phone,
+							address: newVendor.address,
+							gstin: newVendor.gstin,
+							rating: 5.0,
+							status: 'Active'
+						}
+					]),
+					1000
+				);
+			} catch (supaVenErr) {
+				console.warn('Supabase vendor sync note:', supaVenErr);
+			}
+		}
+
 		const newUser = {
 			id: 'user-' + Math.random().toString(36).substring(2, 8),
 			username: generatedUsername,
-			email: email.trim().toLowerCase(),
+			email: cleanEmail,
 			password,
 			role,
 			departmentId: role === 'Employee' ? departmentId : null,
@@ -243,12 +320,12 @@
 		// Non-blocking Supabase sync
 		try {
 			await supabase.auth.signUp({
-				email,
+				email: cleanEmail,
 				password,
 				options: {
 					data: {
 						username: generatedUsername,
-						fullName,
+						fullName: fullName.trim(),
 						role,
 						departmentId: role === 'Employee' ? departmentId : null,
 						vendorId: assignedVendorId,
@@ -261,7 +338,11 @@
 		}
 
 		await globalStore.login(newUser);
-		globalStore.showToast(`Account created! Welcome, ${newUser.fullName}!`, 'success');
+		if (role === 'Vendor') {
+			globalStore.showToast(`Vendor Partner registered! Welcome, ${vendorCompanyName.trim()}!`, 'success');
+		} else {
+			globalStore.showToast(`Account created! Welcome, ${newUser.fullName}!`, 'success');
+		}
 		redirectForRole(newUser);
 		isSubmitting = false;
 	}
@@ -327,7 +408,7 @@
 	</header>
 
 	<!-- Centered Auth Card -->
-	<main class="w-full max-w-md mx-auto my-auto relative z-10 py-6">
+	<main class="w-full {mode === 'register' && role === 'Vendor' ? 'max-w-xl' : 'max-w-md'} mx-auto my-auto relative z-10 py-6 transition-all duration-300">
 		<div class="p-[1px] rounded-3xl bg-gradient-to-b from-sky-500/35 via-slate-800/60 to-indigo-500/25 shadow-2xl shadow-sky-950/60">
 			<div class="bg-slate-900/95 backdrop-blur-2xl p-6 sm:p-8 rounded-[23px] space-y-5">
 				
@@ -478,13 +559,13 @@
 						
 						<!-- Role Selection (Clean Pill Switcher) -->
 						<div class="space-y-1.5">
-							<label class="block font-bold text-xs text-slate-300">
+							<span class="block font-bold text-xs text-slate-300">
 								Account Type
-							</label>
+							</span>
 							<div class="grid grid-cols-2 p-1 bg-slate-950 rounded-xl border border-slate-800 text-xs font-bold">
 								<button
 									type="button"
-									onclick={() => (role = 'Employee')}
+									onclick={() => { role = 'Employee'; errors = {}; }}
 									class="py-2 rounded-lg transition-all text-center {role === 'Employee'
 										? 'bg-sky-500/20 text-sky-400 border border-sky-500/40 font-black'
 										: 'text-slate-400 hover:text-white'}"
@@ -493,7 +574,7 @@
 								</button>
 								<button
 									type="button"
-									onclick={() => (role = 'Vendor')}
+									onclick={() => { role = 'Vendor'; errors = {}; }}
 									class="py-2 rounded-lg transition-all text-center {role === 'Vendor'
 										? 'bg-sky-500/20 text-sky-400 border border-sky-500/40 font-black'
 										: 'text-slate-400 hover:text-white'}"
@@ -503,28 +584,190 @@
 							</div>
 						</div>
 
-						<!-- Full Name -->
-						<div class="space-y-1.5">
-							<label class="block font-bold text-xs text-slate-300" for="reg-name">
-								Full Name
-							</label>
-							<div class="w-full flex items-center gap-3 px-3.5 h-11 bg-slate-950 border border-slate-800 focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-500/20 rounded-xl transition-all {errors.fullName ? 'border-rose-500' : ''}">
-								<UserIcon class="w-4 h-4 text-slate-400 shrink-0" />
-								<input
-									id="reg-name"
-									type="text"
-									placeholder="e.g. Alice Johnson"
-									bind:value={fullName}
-									class="w-full bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-xs sm:text-sm text-white placeholder:text-slate-500 custom-autofill"
-								/>
+						<!-- VENDOR PARTNER ONBOARDING SPECIFIC FIELDS -->
+						{#if role === 'Vendor'}
+							<!-- Vendor Info Banner -->
+							<div class="p-3 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-300 text-xs flex items-start gap-2.5">
+								<Building2 class="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
+								<div class="leading-relaxed">
+									<span class="font-black text-sky-400 block">Vendor Partner Onboarding</span>
+									<span class="text-[11px] text-slate-400">Register your company details to receive RFP quotations, supply PO orders, and invoice settlements.</span>
+								</div>
 							</div>
-							{#if errors.fullName}
-								<p class="text-rose-400 text-[10px] font-bold mt-1">• {errors.fullName}</p>
-							{/if}
-						</div>
 
-						<!-- If Employee: Department Dropdown -->
-						{#if role === 'Employee'}
+							<!-- Company Name -->
+							<div class="space-y-1.5">
+								<label class="block font-bold text-xs text-slate-300" for="reg-vendor-company">
+									Company / Legal Business Name <span class="text-rose-400">*</span>
+								</label>
+								<div class="w-full flex items-center gap-3 px-3.5 h-11 bg-slate-950 border border-slate-800 focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-500/20 rounded-xl transition-all {errors.vendorCompanyName ? 'border-rose-500' : ''}">
+									<Building2 class="w-4 h-4 text-slate-400 shrink-0" />
+									<input
+										id="reg-vendor-company"
+										type="text"
+										placeholder="e.g. Apex Global Tech Solutions Pvt Ltd"
+										bind:value={vendorCompanyName}
+										class="w-full bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-xs sm:text-sm text-white placeholder:text-slate-500 custom-autofill"
+									/>
+								</div>
+								{#if errors.vendorCompanyName}
+									<p class="text-rose-400 text-[10px] font-bold mt-1">• {errors.vendorCompanyName}</p>
+								{/if}
+							</div>
+
+							<!-- Authorized Contact Person & Phone (2-col grid) -->
+							<div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+								<!-- Contact Person -->
+								<div class="space-y-1.5">
+									<label class="block font-bold text-xs text-slate-300" for="reg-name">
+										Contact Person Name <span class="text-rose-400">*</span>
+									</label>
+									<div class="w-full flex items-center gap-3 px-3.5 h-11 bg-slate-950 border border-slate-800 focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-500/20 rounded-xl transition-all {errors.fullName ? 'border-rose-500' : ''}">
+										<UserIcon class="w-4 h-4 text-slate-400 shrink-0" />
+										<input
+											id="reg-name"
+											type="text"
+											placeholder="e.g. Alice Johnson"
+											bind:value={fullName}
+											class="w-full bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-xs sm:text-sm text-white placeholder:text-slate-500 custom-autofill"
+										/>
+									</div>
+									{#if errors.fullName}
+										<p class="text-rose-400 text-[10px] font-bold mt-1">• {errors.fullName}</p>
+									{/if}
+								</div>
+
+								<!-- Business Phone -->
+								<div class="space-y-1.5">
+									<label class="block font-bold text-xs text-slate-300" for="reg-vendor-phone">
+										Business Phone Number <span class="text-rose-400">*</span>
+									</label>
+									<div class="w-full flex items-center gap-3 px-3.5 h-11 bg-slate-950 border border-slate-800 focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-500/20 rounded-xl transition-all {errors.vendorPhone ? 'border-rose-500' : ''}">
+										<Phone class="w-4 h-4 text-slate-400 shrink-0" />
+										<input
+											id="reg-vendor-phone"
+											type="tel"
+											placeholder="e.g. +91 98765 43210"
+											bind:value={vendorPhone}
+											class="w-full bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-xs sm:text-sm text-white placeholder:text-slate-500 custom-autofill"
+										/>
+									</div>
+									{#if errors.vendorPhone}
+										<p class="text-rose-400 text-[10px] font-bold mt-1">• {errors.vendorPhone}</p>
+									{/if}
+								</div>
+							</div>
+
+							<!-- Official Email -->
+							<div class="space-y-1.5">
+								<label class="block font-bold text-xs text-slate-300" for="reg-email">
+									Official Business Email <span class="text-rose-400">*</span>
+								</label>
+								<div class="w-full flex items-center gap-3 px-3.5 h-11 bg-slate-950 border border-slate-800 focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-500/20 rounded-xl transition-all {errors.email ? 'border-rose-500' : ''}">
+									<Mail class="w-4 h-4 text-slate-400 shrink-0" />
+									<input
+										id="reg-email"
+										type="email"
+										placeholder="sales@apextech.com"
+										bind:value={email}
+										class="w-full bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-xs sm:text-sm text-white placeholder:text-slate-500 custom-autofill"
+									/>
+								</div>
+								{#if errors.email}
+									<p class="text-rose-400 text-[10px] font-bold mt-1">• {errors.email}</p>
+								{/if}
+							</div>
+
+							<!-- GSTIN & Supply Category (2-col grid) -->
+							<div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+								<!-- GSTIN -->
+								<div class="space-y-1.5">
+									<label class="block font-bold text-xs text-slate-300" for="reg-vendor-gstin">
+										GSTIN / Tax ID <span class="text-rose-400">*</span>
+									</label>
+									<div class="w-full flex items-center gap-3 px-3.5 h-11 bg-slate-950 border border-slate-800 focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-500/20 rounded-xl transition-all {errors.vendorGstin ? 'border-rose-500' : ''}">
+										<FileText class="w-4 h-4 text-slate-400 shrink-0" />
+										<input
+											id="reg-vendor-gstin"
+											type="text"
+											placeholder="e.g. 33AABCA5678G1Z9"
+											bind:value={vendorGstin}
+											class="w-full bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-xs sm:text-sm text-white uppercase placeholder:text-slate-500 custom-autofill"
+										/>
+									</div>
+									{#if errors.vendorGstin}
+										<p class="text-rose-400 text-[10px] font-bold mt-1">• {errors.vendorGstin}</p>
+									{/if}
+								</div>
+
+								<!-- Supply Category -->
+								<div class="space-y-1.5">
+									<label class="block font-bold text-xs text-slate-300" for="reg-vendor-cat">
+										Primary Supply Category
+									</label>
+									<div class="w-full flex items-center px-3 h-11 bg-slate-950 border border-slate-800 focus-within:border-sky-500 rounded-xl">
+										<Tag class="w-4 h-4 text-slate-400 mr-2 shrink-0" />
+										<select
+											id="reg-vendor-cat"
+											bind:value={vendorCategory}
+											class="w-full bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-xs font-bold text-white cursor-pointer"
+										>
+											<option value="Computer Hardware & IT" class="bg-slate-900 text-white">Computer Hardware & IT</option>
+											<option value="Office Furniture & Equipment" class="bg-slate-900 text-white">Office Furniture & Equipment</option>
+											<option value="Electrical & Industrial Goods" class="bg-slate-900 text-white">Electrical & Industrial Goods</option>
+											<option value="Software Licenses & Cloud" class="bg-slate-900 text-white">Software Licenses & Cloud</option>
+											<option value="Logistics & Freight Services" class="bg-slate-900 text-white">Logistics & Freight Services</option>
+											<option value="Stationery & Printing Supplies" class="bg-slate-900 text-white">Stationery & Printing Supplies</option>
+											<option value="Facility & Maintenance Services" class="bg-slate-900 text-white">Facility & Maintenance Services</option>
+											<option value="General Commercial Supplies" class="bg-slate-900 text-white">General Commercial Supplies</option>
+										</select>
+									</div>
+								</div>
+							</div>
+
+							<!-- Business Address -->
+							<div class="space-y-1.5">
+								<label class="block font-bold text-xs text-slate-300" for="reg-vendor-address">
+									Operating Business Address & City <span class="text-rose-400">*</span>
+								</label>
+								<div class="w-full flex items-center gap-3 px-3.5 h-11 bg-slate-950 border border-slate-800 focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-500/20 rounded-xl transition-all {errors.vendorAddress ? 'border-rose-500' : ''}">
+									<MapPin class="w-4 h-4 text-slate-400 shrink-0" />
+									<input
+										id="reg-vendor-address"
+										type="text"
+										placeholder="e.g. Plot 14, Industrial Estate, Guindy, Chennai"
+										bind:value={vendorAddress}
+										class="w-full bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-xs sm:text-sm text-white placeholder:text-slate-500 custom-autofill"
+									/>
+								</div>
+								{#if errors.vendorAddress}
+									<p class="text-rose-400 text-[10px] font-bold mt-1">• {errors.vendorAddress}</p>
+								{/if}
+							</div>
+
+						{:else}
+							<!-- STAFF EMPLOYEE FIELDS -->
+							<!-- Full Name -->
+							<div class="space-y-1.5">
+								<label class="block font-bold text-xs text-slate-300" for="reg-name">
+									Full Name
+								</label>
+								<div class="w-full flex items-center gap-3 px-3.5 h-11 bg-slate-950 border border-slate-800 focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-500/20 rounded-xl transition-all {errors.fullName ? 'border-rose-500' : ''}">
+									<UserIcon class="w-4 h-4 text-slate-400 shrink-0" />
+									<input
+										id="reg-name"
+										type="text"
+										placeholder="e.g. Alice Johnson"
+										bind:value={fullName}
+										class="w-full bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-xs sm:text-sm text-white placeholder:text-slate-500 custom-autofill"
+									/>
+								</div>
+								{#if errors.fullName}
+									<p class="text-rose-400 text-[10px] font-bold mt-1">• {errors.fullName}</p>
+								{/if}
+							</div>
+
+							<!-- Department Dropdown -->
 							<div class="space-y-1.5">
 								<label class="block font-bold text-xs text-slate-300" for="reg-dept">
 									Department
@@ -546,29 +789,29 @@
 									</select>
 								</div>
 							</div>
+
+							<!-- Email Address -->
+							<div class="space-y-1.5">
+								<label class="block font-bold text-xs text-slate-300" for="reg-email">
+									Corporate Email Address
+								</label>
+								<div class="w-full flex items-center gap-3 px-3.5 h-11 bg-slate-950 border border-slate-800 focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-500/20 rounded-xl transition-all {errors.email ? 'border-rose-500' : ''}">
+									<Mail class="w-4 h-4 text-slate-400 shrink-0" />
+									<input
+										id="reg-email"
+										type="email"
+										placeholder="name@enterprise.com"
+										bind:value={email}
+										class="w-full bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-xs sm:text-sm text-white placeholder:text-slate-500 custom-autofill"
+									/>
+								</div>
+								{#if errors.email}
+									<p class="text-rose-400 text-[10px] font-bold mt-1">• {errors.email}</p>
+								{/if}
+							</div>
 						{/if}
 
-						<!-- Email Address -->
-						<div class="space-y-1.5">
-							<label class="block font-bold text-xs text-slate-300" for="reg-email">
-								Corporate Email Address
-							</label>
-							<div class="w-full flex items-center gap-3 px-3.5 h-11 bg-slate-950 border border-slate-800 focus-within:border-sky-500 focus-within:ring-2 focus-within:ring-sky-500/20 rounded-xl transition-all {errors.email ? 'border-rose-500' : ''}">
-								<Mail class="w-4 h-4 text-slate-400 shrink-0" />
-								<input
-									id="reg-email"
-									type="email"
-									placeholder="name@enterprise.com"
-									bind:value={email}
-									class="w-full bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-xs sm:text-sm text-white placeholder:text-slate-500 custom-autofill"
-								/>
-							</div>
-							{#if errors.email}
-								<p class="text-rose-400 text-[10px] font-bold mt-1">• {errors.email}</p>
-							{/if}
-						</div>
-
-						<!-- Password -->
+						<!-- Password Field (Shared for both roles) -->
 						<div class="space-y-1.5">
 							<label class="block font-bold text-xs text-slate-300" for="reg-password">
 								Create Password
@@ -608,9 +851,9 @@
 						>
 							{#if isSubmitting}
 								<span class="loading loading-spinner loading-sm"></span>
-								<span>Creating Account...</span>
+								<span>Registering Vendor Profile...</span>
 							{:else}
-								<span>Create Account</span>
+								<span>{role === 'Vendor' ? 'Register Vendor Partner' : 'Create Account'}</span>
 								<ArrowRight class="w-4 h-4" />
 							{/if}
 						</button>

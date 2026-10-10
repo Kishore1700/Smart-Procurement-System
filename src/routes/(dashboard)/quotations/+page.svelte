@@ -579,6 +579,7 @@
 				paymentId: paymentResult.paymentId,
 				requestId: selectedRequestId,
 				description: selectedRequest?.title || selectedRequest?.description || 'Stock Procurement Order',
+				items: selectedRequest?.items || [],
 				currentUser: currentUser
 			});
 

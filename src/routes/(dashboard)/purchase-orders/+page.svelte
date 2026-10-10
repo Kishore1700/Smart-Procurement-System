@@ -6,7 +6,8 @@
 	import { supabase, withTimeout } from '$lib/supabase';
 	import { processRazorpayPayment } from '$lib/razorpay';
 	import { createAndSendVendorInvoice } from '$lib/invoiceService';
-	import { CreditCard, Printer } from '@lucide/svelte';
+	import { CreditCard, Printer, Download } from '@lucide/svelte';
+	import { downloadPurchaseOrderPdf } from '$lib/pdfService';
 
 	let role = $derived(globalStore.currentUser?.role || 'Employee');
 	let currentUser = $derived(globalStore.currentUser);
@@ -337,8 +338,29 @@
 		);
 	}
 
-	function simulatePrint() {
+	function handleDownloadPoPdf(targetPo) {
+		const po = targetPo || selectedPo;
+		if (!po) {
+			globalStore.showToast('Please select a Purchase Order first.', 'info');
+			return;
+		}
+		try {
+			const vendor = vendors.find((v) => String(v.id) === String(po.vendorId) || String(v.vendorId) === String(po.vendorId));
+			const request = purchaseRequests.find((r) => String(r.id) === String(po.requestId) || String(r.request_number) === String(po.requestId) || String(r.requestNumber) === String(po.requestId));
+			downloadPurchaseOrderPdf(po, vendor, request, currentUser);
+			globalStore.showToast(`Purchase Order ${po.poNumber} PDF downloaded!`, 'success');
+		} catch (e) {
+			console.error('PO PDF download error:', e);
+			globalStore.showToast('Failed to generate PO PDF: ' + (e?.message || 'Error'), 'error');
+		}
+	}
+
+	function handlePrintPo() {
 		window.print();
+	}
+
+	function simulatePrint() {
+		handleDownloadPoPdf(selectedPo);
 	}
 
 	onMount(() => {
@@ -396,11 +418,11 @@
 				</div>
 
 				<button
-					class="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-					onclick={simulatePrint}
+					class="flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700 shadow-sm transition-colors"
+					onclick={() => handleDownloadPoPdf(selectedPo)}
 				>
-					<Printer size={17} />
-					Print
+					<Download size={16} />
+					Download PO PDF
 				</button>
 			</div>
 		</div>
@@ -666,11 +688,19 @@
 								{/if}
 
 								<button
+									class="flex items-center gap-2 rounded-lg bg-sky-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-sky-700 shadow-sm transition-colors"
+									onclick={() => handleDownloadPoPdf(selectedPo)}
+								>
+									<Download size={17} />
+									Download PO PDF
+								</button>
+
+								<button
 									class="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
-									onclick={simulatePrint}
+									onclick={handlePrintPo}
 								>
 									<Printer size={17} />
-									Print Purchase Order
+									Print Sheet
 								</button>
 							</div>
 						</div>

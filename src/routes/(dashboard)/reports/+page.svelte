@@ -5,16 +5,27 @@
 	import {
 		FileSpreadsheet,
 		FileDown,
+		FileText,
 		Printer,
 		TrendingUp,
 		BarChart3,
-		CheckCircle2
+		CheckCircle2,
+		ShieldCheck,
+		Download
 	} from '@lucide/svelte';
+	import {
+		downloadPurchaseRequestsReport,
+		downloadDepartmentBudgetsReport,
+		downloadInvoicesReport,
+		downloadExecutiveSummaryReport
+	} from '$lib/pdfService';
 
 	// Load data
 	let prs = $derived(db.getPurchaseRequests());
 	let depts = $derived(db.getDepartments());
 	let invoices = $derived(db.getInvoices());
+	let pos = $derived(db.getPurchaseOrders());
+	let currentUser = $derived(globalStore.currentUser);
 
 	// Export functions
 	function exportCSV(/** @type {string} */ type) {
@@ -52,6 +63,27 @@
 		globalStore.showToast(`CSV Export for ${type} triggered successfully.`, 'success');
 	}
 
+	function handleDownloadPdf(/** @type {string} */ type) {
+		try {
+			if (type === 'requests') {
+				downloadPurchaseRequestsReport(prs, currentUser);
+				globalStore.showToast('Purchase Requests PDF Ledger downloaded!', 'success');
+			} else if (type === 'budgets') {
+				downloadDepartmentBudgetsReport(depts, currentUser);
+				globalStore.showToast('Department Budgets PDF Report downloaded!', 'success');
+			} else if (type === 'invoices') {
+				downloadInvoicesReport(invoices, currentUser);
+				globalStore.showToast('Invoices Financial Audit PDF Report downloaded!', 'success');
+			} else if (type === 'executive') {
+				downloadExecutiveSummaryReport(prs, depts, invoices, pos, currentUser);
+				globalStore.showToast('Executive Master Audit PDF Report downloaded!', 'success');
+			}
+		} catch (e) {
+			console.error('PDF generation error:', e);
+			globalStore.showToast('Failed to generate PDF: ' + (e?.message || 'Unknown error'), 'error');
+		}
+	}
+
 	// Chart options
 	let categorySpendingChart = $derived.by(() => {
 		const cats = Array.from(new Set(prs.map((/** @type {any} */ p) => p.category)));
@@ -79,8 +111,17 @@
 				Analytics & Reports
 			</h1>
 			<p class="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
-				Export core data tables or review visual category distributions and budget allocations.
+				Export verified audit PDFs, core ledger spreadsheets, and review real-time budget metrics.
 			</p>
+		</div>
+		<div>
+			<button
+				onclick={() => handleDownloadPdf('executive')}
+				class="btn btn-gradient-primary btn-sm font-black rounded-xl px-4 py-2 flex items-center shadow-lg shadow-sky-600/25 text-xs hover:scale-102 transition-transform"
+			>
+				<Download class="w-4 h-4 mr-2" />
+				Executive Master Audit PDF
+			</button>
 		</div>
 	</div>
 
@@ -94,9 +135,12 @@
 				<h3 class="font-black text-slate-900 dark:text-slate-100 text-sm">Purchase Requests Ledger</h3>
 				<p class="text-slate-500 dark:text-slate-400 text-[11px] mt-1 font-medium leading-relaxed">Detailed list of request categories, approvals, and cost estimates.</p>
 			</div>
-			<div class="flex gap-2">
-				<button onclick={() => exportCSV('requests')} class="btn btn-gradient-primary btn-xs font-extrabold rounded-xl px-4 py-2 flex items-center shadow-md shadow-sky-600/20">
-					<FileDown class="w-3.5 h-3.5 mr-1.5" /> Export CSV
+			<div class="flex flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+				<button onclick={() => handleDownloadPdf('requests')} class="btn btn-gradient-primary btn-xs font-black rounded-xl px-3 py-2 flex items-center shadow-md shadow-sky-600/20">
+					<FileText class="w-3.5 h-3.5 mr-1.5" /> Download PDF
+				</button>
+				<button onclick={() => exportCSV('requests')} class="btn btn-outline btn-xs font-bold rounded-xl px-3 py-2 flex items-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
+					<FileDown class="w-3.5 h-3.5 mr-1" /> CSV
 				</button>
 			</div>
 		</div>
@@ -109,9 +153,12 @@
 				<h3 class="font-black text-slate-900 dark:text-slate-100 text-sm">Department Budget Metrics</h3>
 				<p class="text-slate-500 dark:text-slate-400 text-[11px] mt-1 font-medium leading-relaxed">Allocated annual thresholds, current utilized sums, and remainders.</p>
 			</div>
-			<div class="flex gap-2">
-				<button onclick={() => exportCSV('budgets')} class="btn btn-gradient-primary btn-xs font-extrabold rounded-xl px-4 py-2 flex items-center shadow-md shadow-sky-600/20">
-					<FileDown class="w-3.5 h-3.5 mr-1.5" /> Export CSV
+			<div class="flex flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+				<button onclick={() => handleDownloadPdf('budgets')} class="btn btn-gradient-primary btn-xs font-black rounded-xl px-3 py-2 flex items-center shadow-md shadow-emerald-600/20">
+					<FileText class="w-3.5 h-3.5 mr-1.5" /> Download PDF
+				</button>
+				<button onclick={() => exportCSV('budgets')} class="btn btn-outline btn-xs font-bold rounded-xl px-3 py-2 flex items-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
+					<FileDown class="w-3.5 h-3.5 mr-1" /> CSV
 				</button>
 			</div>
 		</div>
@@ -124,9 +171,12 @@
 				<h3 class="font-black text-slate-900 dark:text-slate-100 text-sm">Invoices & Financial Auditing</h3>
 				<p class="text-slate-500 dark:text-slate-400 text-[11px] mt-1 font-medium leading-relaxed">Verified payouts, submitted billings, and payment settlements status.</p>
 			</div>
-			<div class="flex gap-2">
-				<button onclick={() => exportCSV('invoices')} class="btn btn-gradient-primary btn-xs font-extrabold rounded-xl px-4 py-2 flex items-center shadow-md shadow-sky-600/20">
-					<FileDown class="w-3.5 h-3.5 mr-1.5" /> Export CSV
+			<div class="flex flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-slate-800/80">
+				<button onclick={() => handleDownloadPdf('invoices')} class="btn btn-gradient-primary btn-xs font-black rounded-xl px-3 py-2 flex items-center shadow-md shadow-purple-600/20">
+					<FileText class="w-3.5 h-3.5 mr-1.5" /> Download PDF
+				</button>
+				<button onclick={() => exportCSV('invoices')} class="btn btn-outline btn-xs font-bold rounded-xl px-3 py-2 flex items-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
+					<FileDown class="w-3.5 h-3.5 mr-1" /> CSV
 				</button>
 			</div>
 		</div>

@@ -23,8 +23,10 @@
 		Check,
 		AlertCircle,
 		MapPin,
-		Filter
+		Filter,
+		Download
 	} from '@lucide/svelte';
+	import { downloadDeliveryChallanPdf } from '$lib/pdfService';
 
 	let role = $derived(globalStore.currentUser?.role || 'Employee');
 	let currentUser = $derived(globalStore.currentUser);
@@ -307,6 +309,19 @@
 
 		globalStore.showToast(`Shipment for PO ${list[idx].poNumber} successfully marked as Delivered! PO Completed.`, 'success');
 	}
+
+	function handleDownloadDeliveryPdf(del) {
+		const targetDel = del || selectedDeliveryForModal;
+		if (!targetDel) return;
+		try {
+			const po = (db.getPurchaseOrders() || []).find((p) => p.poNumber === targetDel.poNumber || p.po_number === targetDel.poNumber);
+			downloadDeliveryChallanPdf(targetDel, po, currentUser);
+			globalStore.showToast(`Delivery Challan ${targetDel.trackingNumber || targetDel.poNumber} PDF downloaded!`, 'success');
+		} catch (e) {
+			console.error('Delivery Challan PDF error:', e);
+			globalStore.showToast('Failed to generate Delivery Challan PDF: ' + (e?.message || 'Error'), 'error');
+		}
+	}
 </script>
 
 <div class="space-y-6">
@@ -552,6 +567,16 @@
 										<span>Track</span>
 									</button>
 
+									<!-- Download Challan PDF Button -->
+									<button
+										onclick={() => handleDownloadDeliveryPdf(del)}
+										class="btn btn-ghost btn-xs text-[11px] font-extrabold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 rounded-lg px-2 flex items-center gap-1"
+										title="Download Delivery Challan & GRN PDF"
+									>
+										<Download class="w-3.5 h-3.5" />
+										<span>Challan PDF</span>
+									</button>
+
 									<!-- Vendor Dispatch Action -->
 									{#if del.status === 'Pending' && isVendor}
 										<button
@@ -705,10 +730,17 @@
 
 					<div class="flex items-center gap-2">
 						<button
-							onclick={() => window.print()}
-							class="btn btn-ghost btn-sm text-xs font-bold rounded-xl text-slate-600 dark:text-slate-300 flex items-center gap-1.5"
+							onclick={() => handleDownloadDeliveryPdf(selectedDeliveryForModal)}
+							class="btn btn-gradient-primary btn-sm text-xs font-black rounded-xl shadow-lg shadow-sky-600/25 px-4 flex items-center gap-1.5"
 						>
-							<Printer class="w-4 h-4 text-sky-500" />
+							<Download class="w-4 h-4" />
+							Download Challan PDF
+						</button>
+						<button
+							onclick={() => window.print()}
+							class="btn btn-outline btn-sm text-xs font-bold rounded-xl border-slate-700 text-slate-300 hover:text-white px-3 flex items-center gap-1.5"
+						>
+							<Printer class="w-4 h-4" />
 							Print Sheet
 						</button>
 						<button
@@ -872,6 +904,15 @@
 					</p>
 
 					<div class="flex items-center gap-2">
+						<button
+							type="button"
+							onclick={() => handleDownloadDeliveryPdf(selectedDeliveryForModal)}
+							class="btn btn-gradient-primary btn-sm text-xs font-black rounded-xl px-4 flex items-center gap-1.5 shadow-md shadow-sky-600/20"
+						>
+							<Download class="w-3.5 h-3.5" />
+							<span>Download Challan PDF</span>
+						</button>
+
 						<!-- Dispatch from inside modal -->
 						{#if isPending && isVendor}
 							<button

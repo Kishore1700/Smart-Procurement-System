@@ -26,8 +26,10 @@
 		Layers,
 		BadgeCheck,
 		Filter,
-		ExternalLink
+		ExternalLink,
+		Download
 	} from '@lucide/svelte';
+	import { downloadTaxInvoicePdf } from '$lib/pdfService';
 
 	let role = $derived(globalStore.currentUser?.role || 'Employee');
 	let currentUser = $derived(globalStore.currentUser);
@@ -323,6 +325,8 @@
 			list[idx].paymentMethod = 'Razorpay';
 			list[idx].paymentStatus = 'Settled';
 			db.saveInvoices(list);
+		}
+
 		// Update or generate Delivery Tracking record for this settled PO
 		try {
 			const deliveries = db.getDeliveries() || [];
@@ -363,6 +367,20 @@
 
 	function printTaxInvoice() {
 		window.print();
+	}
+
+	function handleDownloadInvoicePdf(inv) {
+		const targetInv = inv || selectedInvoiceForModal;
+		if (!targetInv) return;
+		try {
+			const po = (db.getPurchaseOrders() || []).find((p) => p.poNumber === targetInv.poNumber || p.po_number === targetInv.poNumber);
+			const vendor = (db.getVendors() || []).find((v) => v.id === targetInv.vendorId || v.vendorId === targetInv.vendorId || v.id === targetInv.vendor_id);
+			downloadTaxInvoicePdf(targetInv, po, vendor, currentUser);
+			globalStore.showToast(`Official Tax Invoice ${targetInv.invoiceNumber} PDF downloaded!`, 'success');
+		} catch (e) {
+			console.error('Invoice PDF error:', e);
+			globalStore.showToast('Failed to generate Tax Invoice PDF: ' + (e?.message || 'Error'), 'error');
+		}
 	}
 </script>
 
@@ -614,7 +632,17 @@
 										title="View Official Tax Invoice Copy"
 									>
 										<Eye class="w-3.5 h-3.5" />
-										<span>View Invoice</span>
+										<span>View</span>
+									</button>
+
+									<!-- Download PDF Button -->
+									<button
+										onclick={() => handleDownloadInvoicePdf(inv)}
+										class="btn btn-ghost btn-xs text-[11px] font-extrabold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 rounded-lg px-2 flex items-center gap-1"
+										title="Download Official Tax Invoice PDF"
+									>
+										<Download class="w-3.5 h-3.5" />
+										<span>PDF</span>
 									</button>
 
 									<!-- Admin Verify Action -->
@@ -771,11 +799,18 @@
 					</div>
 					<div class="flex items-center gap-2">
 						<button
-							onclick={printTaxInvoice}
+							onclick={() => handleDownloadInvoicePdf(selectedInvoiceForModal)}
 							class="btn btn-gradient-primary btn-sm text-xs font-black rounded-xl shadow-lg shadow-sky-600/25 px-4 flex items-center gap-1.5"
 						>
+							<Download class="w-4 h-4" />
+							Download PDF
+						</button>
+						<button
+							onclick={printTaxInvoice}
+							class="btn btn-outline btn-sm text-xs font-bold rounded-xl border-slate-700 text-slate-300 hover:text-white px-3 flex items-center gap-1.5"
+						>
 							<Printer class="w-4 h-4" />
-							Print / Save PDF
+							Print Sheet
 						</button>
 						<button
 							onclick={() => (selectedInvoiceForModal = null)}
@@ -1009,11 +1044,19 @@
 					<div class="flex items-center gap-2">
 						<button
 							type="button"
-							onclick={printTaxInvoice}
-							class="btn btn-gradient-primary btn-sm text-xs font-black rounded-xl px-5"
+							onclick={() => handleDownloadInvoicePdf(selectedInvoiceForModal)}
+							class="btn btn-gradient-primary btn-sm text-xs font-black rounded-xl px-4 flex items-center gap-1.5"
 						>
-							<Printer class="w-4 h-4 mr-1.5" />
-							Print / PDF
+							<Download class="w-4 h-4" />
+							Download PDF
+						</button>
+						<button
+							type="button"
+							onclick={printTaxInvoice}
+							class="btn btn-outline btn-sm text-xs font-bold rounded-xl border-slate-700 text-slate-300 hover:text-white px-3 flex items-center gap-1.5"
+						>
+							<Printer class="w-4 h-4" />
+							Print Sheet
 						</button>
 						<button
 							type="button"

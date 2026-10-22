@@ -1,6 +1,5 @@
 <script>
 	import { goto } from '$app/navigation';
-	import { onMount } from 'svelte';
 	import { globalStore } from '$lib/stores/globalStore.svelte';
 	import {
 		ShieldCheck,
@@ -11,10 +10,7 @@
 		Truck,
 		Sun,
 		Moon,
-		TrendingUp,
-		Zap,
-		Lock,
-		Check
+		Zap
 	} from '@lucide/svelte';
 
 

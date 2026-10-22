@@ -1,16 +1,7 @@
 <script>
 	import { globalStore } from '$lib/stores/globalStore.svelte';
 	import { db } from '$lib/db/mockDb';
-	import { z } from 'zod';
-	import {
-		DollarSign,
-		TrendingUp,
-		AlertTriangle,
-		Save,
-		Building,
-		ArrowUpRight,
-		CheckCircle2
-	} from '@lucide/svelte';
+	import { Save, Building } from '@lucide/svelte';
 
 	let role = $derived(globalStore.currentUser?.role || 'Employee');
 	let currentUser = $derived(globalStore.currentUser);
@@ -74,7 +65,7 @@
 
 	<!-- Budget Cards Grid -->
 	<div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs md:text-sm">
-		{#each departments as dept}
+		{#each departments as dept (dept.id)}
 			{@const pct = Math.round((dept.utilizedBudget / dept.allocatedBudget) * 100)}
 			<div class="glass-card border border-slate-200/80 dark:border-slate-800 shadow-xl hover:shadow-2xl transition-all duration-300 rounded-2xl p-5 space-y-4 relative overflow-hidden group hover:-translate-y-1">
 				<div class="flex justify-between items-start">
@@ -137,7 +128,7 @@
 					</label>
 					<select id="b-dept" bind:value={selectedDeptId} class="select text-xs w-full border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-xl font-semibold">
 						<option value="">-- Choose Division --</option>
-						{#each departments as d}
+						{#each departments as d (d.id)}
 							<option value={d.id}>{d.name} (₹{d.allocatedBudget.toLocaleString()})</option>
 						{/each}
 					</select>

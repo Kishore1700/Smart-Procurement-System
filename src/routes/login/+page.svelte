@@ -19,8 +19,7 @@
 		Phone,
 		FileText,
 		MapPin,
-		Tag,
-		Layers
+		Tag
 	} from '@lucide/svelte';
 
 	let mode = $state('login'); // 'login' | 'register' | 'forgot'
@@ -46,18 +45,9 @@
 
 	let errors = $state(/** @type {Record<string, string>} */ ({}));
 
-	const roleSchema = z.enum(['Employee', 'Vendor']);
-
 	const loginSchema = z.object({
 		email: z.string().email({ message: 'Valid email address is required' }),
 		password: z.string().min(6, { message: 'Password must be at least 6 characters' })
-	});
-
-	const registerSchema = z.object({
-		fullName: z.string().min(2, { message: 'Full name is required' }),
-		email: z.string().email({ message: 'Valid email address is required' }),
-		password: z.string().min(6, { message: 'Password must be at least 6 characters' }),
-		role: roleSchema
 	});
 
 	function redirectForRole(/** @type {any} */ user) {
@@ -76,7 +66,7 @@
 					.select('id, username, email, role, department_id, vendor_id, full_name, status, avatar_url, created_at')
 					.eq('email', user.email)
 					.maybeSingle(),
-				800
+				250
 			);
 
 			if (procurementUser) {
@@ -94,7 +84,9 @@
 					updatedAt: null
 				};
 			}
-		} catch (err) {}
+		} catch {
+			// Profile fetch fallback
+		}
 
 		return {
 			id: user.id || 'user-1',
@@ -117,7 +109,7 @@
 			return;
 		}
 
-		const { data, error } = await withTimeout(supabase.auth.getSession(), 800);
+		const { data, error } = await withTimeout(supabase.auth.getSession(), 250);
 
 		if (error && error.message !== 'Request timeout') {
 			globalStore.showToast(error.message, 'error');
@@ -126,7 +118,7 @@
 				const profile = await getProfile(data.session.user);
 				await globalStore.login(profile);
 				redirectForRole(profile);
-			} catch (/** @type {any} */ profileError) {
+			} catch {
 				globalStore.clearSession();
 			}
 		}
@@ -191,7 +183,7 @@
 			await globalStore.login(profile);
 			globalStore.showToast(`Welcome back, ${profile.fullName}!`, 'success');
 			redirectForRole(profile);
-		} catch (err) {
+		} catch {
 			globalStore.showToast('Invalid login credentials', 'error');
 		} finally {
 			isSubmitting = false;

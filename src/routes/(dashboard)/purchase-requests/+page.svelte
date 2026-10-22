@@ -9,12 +9,7 @@
 		Plus,
 		Trash2,
 		AlertTriangle,
-		Paperclip,
-		ChevronDown,
-		Search,
-		Filter,
-		Info,
-		CheckCircle2
+		Paperclip
 	} from '@lucide/svelte';
 
 	let role = $derived(globalStore.currentUser?.role || 'Employee');
@@ -30,7 +25,7 @@
 	let prDescription = $state('');
 	let prCategory = $state('Computer Hardware');
 	let prPriority = $state('Medium');
-	let attachmentFile = $state(/** @type {File | null} */ (null));
+	let _attachmentFile = $state(/** @type {File | null} */ (null));
 	let attachmentName = $state(/** @type {string | null} */ (null));
 
 	// PR Items list in form
@@ -61,9 +56,9 @@
 	// List purchase requests
 	async function loadPurchaseRequests() {
 		const localRequests = db.getPurchaseRequests() || [];
-		const mergedMap = new Map();
-		localRequests.forEach((pr) => mergedMap.set(pr.id, pr));
-		supabasePurchaseRequests = Array.from(mergedMap.values());
+		const mergedObj = {};
+		localRequests.forEach((pr) => { mergedObj[pr.id] = pr; });
+		supabasePurchaseRequests = Object.values(mergedObj);
 
 		try {
 			const { data, error } = await withTimeout(
@@ -89,8 +84,8 @@
 					updatedAt: pr.updated_at,
 					items: pr.purchase_request_items || []
 				}));
-				supabaseList.forEach((pr) => mergedMap.set(pr.id, pr));
-				supabasePurchaseRequests = Array.from(mergedMap.values());
+				supabaseList.forEach((pr) => { mergedObj[pr.id] = pr; });
+				supabasePurchaseRequests = Object.values(mergedObj);
 			}
 		} catch (err) {
 			console.warn('Failed to load from Supabase:', err);
@@ -158,7 +153,7 @@ onMount(() => {
 	function handleFileChange(/** @type {Event} */ e) {
 		const target = /** @type {HTMLInputElement} */ (e.target);
 		if (target.files && target.files.length > 0) {
-			attachmentFile = target.files[0];
+			_attachmentFile = target.files[0];
 			attachmentName = target.files[0].name;
 		}
 	}
@@ -213,25 +208,6 @@ onMount(() => {
 		let requesterId = currentUser?.id || 'user-emp1';
 		let departmentId = currentUser?.departmentId || 'dept-electronics';
 
-		if (globalStore.currentUser?.email) {
-			try {
-				const { data: procurementUser } = await supabase
-					.from('users')
-					.select('id, department_id')
-					.eq('email', globalStore.currentUser?.email)
-					.maybeSingle();
-
-				if (procurementUser?.id) {
-					requesterId = procurementUser.id;
-					if (procurementUser.department_id) {
-						departmentId = procurementUser.department_id;
-					}
-				}
-			} catch (err) {
-				console.warn('Supabase user lookup failed, falling back to local user state:', err);
-			}
-		}
-
 		const newRequest = {
 			id: 'pr-' + Math.random().toString(36).substring(2, 6).toUpperCase(),
 			title: prTitle,
@@ -257,46 +233,11 @@ onMount(() => {
 			updatedAt: new Date().toISOString()
 		};
 
-		// Save locally first to guarantee persistence
+		// Save locally first to guarantee instantaneous persistence
 		const existingRequests = db.getPurchaseRequests() || [];
-		db.savePurchaseRequests([newRequest, ...existingRequests]);
-
-		// Attempt sync with Supabase
-		try {
-			const { error: requestError } = await supabase
-				.from('purchase_requests')
-				.insert({
-					id: newRequest.id,
-					title: newRequest.title,
-					description: newRequest.description,
-					department_id: departmentId,
-					requester_id: requesterId,
-					category: newRequest.category,
-					priority: newRequest.priority,
-					estimated_cost: newRequest.estimatedCost,
-					attachment_url: newRequest.attachmentUrl,
-					attachment_name: newRequest.attachmentName,
-					status: newRequest.status,
-					current_approver_id: newRequest.currentApproverId,
-					budget_status: newRequest.budgetStatus
-				});
-
-			if (!requestError) {
-				await supabase
-					.from('purchase_request_items')
-					.insert(
-						newRequest.items.map((item) => ({
-							id: `${newRequest.id}-${item.id}`,
-							request_id: newRequest.id,
-							item_name: item.itemName,
-							quantity: item.quantity,
-							unit_price: item.unitPrice
-						}))
-					);
-			}
-		} catch (err) {
-			console.warn('Could not sync request to Supabase, saved locally:', err);
-		}
+		const updatedList = [newRequest, ...existingRequests];
+		db.savePurchaseRequests(updatedList);
+		supabasePurchaseRequests = updatedList;
 
 		db.logAction(
 			currentUser?.id || '',
@@ -315,9 +256,53 @@ onMount(() => {
 			);
 		}
 
-		await loadPurchaseRequests();
 		globalStore.showToast(`Purchase Request ${newRequest.id} submitted successfully!`, 'success');
 		resetForm();
+
+		// Asynchronous non-blocking background sync to Supabase
+		void (async () => {
+			try {
+				const { error: requestError } = await withTimeout(
+					supabase
+						.from('purchase_requests')
+						.insert({
+							id: newRequest.id,
+							title: newRequest.title,
+							description: newRequest.description,
+							department_id: departmentId,
+							requester_id: requesterId,
+							category: newRequest.category,
+							priority: newRequest.priority,
+							estimated_cost: newRequest.estimatedCost,
+							attachment_url: newRequest.attachmentUrl,
+							attachment_name: newRequest.attachmentName,
+							status: newRequest.status,
+							current_approver_id: newRequest.currentApproverId,
+							budget_status: newRequest.budgetStatus
+						}),
+					400
+				);
+
+				if (!requestError) {
+					await withTimeout(
+						supabase
+							.from('purchase_request_items')
+							.insert(
+								newRequest.items.map((item) => ({
+									id: `${newRequest.id}-${item.id}`,
+									request_id: newRequest.id,
+									item_name: item.itemName,
+									quantity: item.quantity,
+									unit_price: item.unitPrice
+								}))
+							),
+						400
+					);
+				}
+			} catch (err) {
+				console.warn('Background Supabase sync completed with local fallback:', err);
+			}
+		})();
 	}
 
 	function resetForm() {
@@ -325,7 +310,7 @@ onMount(() => {
 		prDescription = '';
 		prCategory = 'Computer Hardware';
 		prPriority = 'Medium';
-		attachmentFile = null;
+		_attachmentFile = null;
 		attachmentName = null;
 		formItems = [{ id: 'item-1', itemName: '', quantity: 1, unitPrice: 0, estimatedCost: 0 }];
 		errors = {};
@@ -417,12 +402,12 @@ onMount(() => {
 				<tbody class="divide-y divide-slate-100 dark:divide-slate-800/60 text-xs">
 					{#if purchaseRequests.length === 0}
 						<tr>
-							<td colspan="7" class="text-center py-12 text-slate-400 font-semibold">
+							<td colspan="7" class="text-center py-12 text-slate-500 dark:text-slate-400 font-semibold">
 								No purchase requests found matching filters.
 							</td>
 						</tr>
 					{/if}
-					{#each purchaseRequests as pr}
+					{#each purchaseRequests as pr (pr.id)}
 						<tr class="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
 							<td class="font-black text-sky-600 dark:text-sky-400">{pr.id}</td>
 							<td>
@@ -574,7 +559,7 @@ onMount(() => {
 						</div>
 
 						<div class="space-y-2">
-							{#each formItems as item, index}
+							{#each formItems as item, idx (item.id || idx)}
 								<div class="flex gap-2.5 items-center">
 									<input
 										type="text"

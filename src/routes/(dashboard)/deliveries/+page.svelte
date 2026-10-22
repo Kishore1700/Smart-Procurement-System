@@ -6,24 +6,19 @@
 	import {
 		Truck,
 		PackageCheck,
-		Search,
 		CheckCircle2,
 		Calendar,
-		ArrowRight,
 		FileText,
 		Clock,
 		ShieldCheck,
 		Eye,
 		X,
 		Building,
-		CreditCard,
 		Printer,
 		Box,
 		Send,
 		Check,
-		AlertCircle,
 		MapPin,
-		Filter,
 		Download
 	} from '@lucide/svelte';
 	import { downloadDeliveryChallanPdf } from '$lib/pdfService';
@@ -213,20 +208,16 @@
 		db.saveDeliveries(list);
 
 		// Non-blocking Supabase sync
-		try {
-			await withTimeout(
-				supabase.from('deliveries').upsert({
-					id: list[idx].id,
-					po_number: list[idx].poNumber,
-					status: 'Shipped',
-					carrier: dispatchCarrier,
-					tracking_number: list[idx].trackingNumber
-				}),
-				1200
-			);
-		} catch (supaErr) {
-			console.warn('Supabase delivery update warning:', supaErr);
-		}
+		void withTimeout(
+			supabase.from('deliveries').upsert({
+				id: list[idx].id,
+				po_number: list[idx].poNumber,
+				status: 'Shipped',
+				carrier: dispatchCarrier,
+				tracking_number: list[idx].trackingNumber
+			}),
+			300
+		).catch(() => {});
 
 		// Log audit
 		db.logAction(
@@ -274,14 +265,10 @@
 			pos[poIdx].status = 'Completed';
 			db.savePurchaseOrders(pos);
 
-			try {
-				await withTimeout(
-					supabase.from('purchase_orders').update({ status: 'Completed' }).eq('id', pos[poIdx].id),
-					1200
-				);
-			} catch (poErr) {
-				console.warn('Supabase PO completion warning:', poErr);
-			}
+			void withTimeout(
+				supabase.from('purchase_orders').update({ status: 'Completed' }).eq('id', pos[poIdx].id),
+				300
+			).catch(() => {});
 		}
 
 		// Log audit
@@ -467,13 +454,13 @@
 				<tbody class="divide-y divide-slate-100 dark:divide-slate-800/60">
 					{#if deliveries.length === 0}
 						<tr>
-							<td colspan="7" class="text-center py-14 text-slate-400 font-semibold">
+							<td colspan="7" class="text-center py-14 text-slate-500 dark:text-slate-400 font-semibold">
 								<Truck class="w-8 h-8 mx-auto text-slate-300 dark:text-slate-700 mb-2 opacity-60" />
 								No deliveries or shipments registered.
 							</td>
 						</tr>
 					{/if}
-					{#each deliveries as del}
+					{#each deliveries as del (del.id || del.trackingNumber)}
 						<tr class="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
 							<!-- PO Number -->
 							<td>
@@ -882,7 +869,7 @@
 							<span>{del.items.length} Line Item{del.items.length === 1 ? '' : 's'}</span>
 						</div>
 						<div class="p-2 space-y-1 bg-white dark:bg-slate-900">
-							{#each del.items as item, idx}
+							{#each del.items as item, idx (item.name + idx)}
 								<div class="flex items-center justify-between text-[11px] p-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 rounded-lg">
 									<div class="flex items-center gap-2">
 										<span class="text-slate-400 font-mono text-[10px]">{idx + 1}.</span>

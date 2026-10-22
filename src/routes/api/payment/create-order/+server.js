@@ -17,7 +17,7 @@ function getEnvVar(key, defaultValue = '') {
 		if (publicEnv && /** @type {any} */ (publicEnv)[key]) return /** @type {any} */ (publicEnv)[key];
 		if (env && /** @type {any} */ (env)[key]) return /** @type {any} */ (env)[key];
 		if (typeof process !== 'undefined' && process.env && process.env[key]) return process.env[key];
-	} catch (e) {
+	} catch {
 		// ignore
 	}
 

@@ -13,7 +13,6 @@
 	let currentUser = $derived(globalStore.currentUser);
 
 	let selectedPoId = $state(null);
-	let activeTab = $state('po');
 
 	let purchaseOrders = $state([]);
 	let vendors = $state([]);
@@ -54,7 +53,7 @@
 		try {
 			const { data: poData } = await withTimeout(
 				supabase.from('purchase_orders').select('*').order('created_at', { ascending: false }),
-				800
+				250
 			);
 
 			if (poData && poData.length > 0) {
@@ -70,10 +69,10 @@
 					createdAt: po.created_at || new Date().toISOString()
 				}));
 
-				const map = new Map();
-				localPOs.forEach(p => map.set(p.id, p));
-				remotePOs.forEach(p => map.set(p.id, p));
-				let list = Array.from(map.values());
+				const mapObj = {};
+				localPOs.forEach(p => { mapObj[p.id] = p; });
+				remotePOs.forEach(p => { mapObj[p.id] = p; });
+				let list = Object.values(mapObj);
 				if (role === 'Vendor' && currentUser?.vendorId) {
 					list = list.filter((po) => String(po.vendorId) === String(currentUser.vendorId));
 				}
@@ -126,8 +125,6 @@
 		} else {
 			selectedPoId = null;
 		}
-
-		activeTab = 'po';
 	});
 
 	let selectedPo = $derived(
@@ -359,10 +356,6 @@
 		window.print();
 	}
 
-	function simulatePrint() {
-		handleDownloadPoPdf(selectedPo);
-	}
-
 	onMount(() => {
 		loadPurchaseOrders();
 	});
@@ -448,25 +441,25 @@
 		{:else}
 			<div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
 				<div
-					class="overflow-hidden rounded-xl border border-gray-200 bg-white lg:col-span-1"
+					class="glass-card overflow-hidden rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xl lg:col-span-1"
 				>
-					<div class="border-b border-gray-200 px-5 py-4">
-						<h2 class="font-semibold text-gray-900">
+					<div class="border-b border-slate-200/90 dark:border-slate-800 px-5 py-4 bg-slate-50/50 dark:bg-slate-950/40">
+						<h2 class="font-bold text-slate-900 dark:text-slate-100">
 							Purchase Orders
 						</h2>
 
-						<p class="mt-1 text-xs text-gray-500">
+						<p class="mt-1 text-xs text-slate-500 dark:text-slate-400 font-medium">
 							Select an order to view details.
 						</p>
 					</div>
 
-					<div class="divide-y divide-gray-100">
-						{#each purchaseOrders as po}
+					<div class="divide-y divide-slate-100 dark:divide-slate-800">
+						{#each purchaseOrders as po (po.id)}
 							<button
-								class="w-full text-left transition hover:bg-gray-50 {selectedPoId ===
+								class="w-full text-left transition hover:bg-slate-100/70 dark:hover:bg-slate-800/50 {selectedPoId ===
 								po.id
-									? 'bg-blue-50'
-									: 'bg-white'}"
+									? 'bg-sky-50 dark:bg-sky-950/40 border-l-4 border-sky-500'
+									: 'bg-transparent'}"
 								onclick={() => (selectedPoId = po.id)}
 							>
 								<div class="px-5 py-4">
@@ -474,11 +467,11 @@
 										class="flex items-start justify-between gap-3"
 									>
 										<div>
-											<p class="font-semibold text-gray-900">
+											<p class="font-bold text-slate-900 dark:text-slate-100">
 												{po.poNumber}
 											</p>
 
-											<p class="mt-1 text-xs text-gray-500">
+											<p class="mt-1 text-xs text-slate-500 dark:text-slate-400 font-medium">
 												{po.createdAt
 													? new Date(
 															po.createdAt
@@ -488,14 +481,14 @@
 										</div>
 
 										<span
-											class="rounded-full px-2.5 py-1 text-xs font-medium {po.status ===
+											class="rounded-full px-2.5 py-1 text-xs font-bold {po.status ===
 											'Approved'
-												? 'bg-green-100 text-green-700'
+												? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
 												: po.status === 'Issued'
-													? 'bg-blue-100 text-blue-700'
+													? 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border border-sky-500/30'
 													: po.status === 'Draft'
-														? 'bg-gray-100 text-gray-700'
-														: 'bg-yellow-100 text-yellow-700'}"
+														? 'bg-slate-500/15 text-slate-700 dark:text-slate-300 border border-slate-500/30'
+														: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30'}"
 										>
 											{po.status}
 										</span>
@@ -504,11 +497,11 @@
 									<div
 										class="mt-3 flex items-center justify-between"
 									>
-										<span class="text-xs text-gray-500">
+										<span class="text-xs text-slate-500 dark:text-slate-400 font-medium">
 											Total Amount
 										</span>
 
-										<span class="font-semibold text-gray-900">
+										<span class="font-black text-slate-900 dark:text-slate-100">
 											₹{po.totalAmount.toLocaleString('en-IN')}
 										</span>
 									</div>
@@ -519,34 +512,34 @@
 				</div>
 
 				<div
-					class="rounded-xl border border-gray-200 bg-white lg:col-span-2"
+					class="glass-card rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-xl lg:col-span-2 overflow-hidden"
 				>
 					{#if selectedPo}
-						<div class="border-b border-gray-200 px-6 py-5">
+						<div class="border-b border-slate-200/90 dark:border-slate-800 px-6 py-5 bg-slate-50/50 dark:bg-slate-950/40">
 							<div
 								class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"
 							>
 								<div>
 									<p
-										class="text-xs font-medium uppercase tracking-wide text-gray-500"
+										class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400"
 									>
 										Purchase Order
 									</p>
 
-									<h2 class="mt-1 text-2xl font-bold text-gray-900">
+									<h2 class="mt-1 text-2xl font-black text-slate-900 dark:text-slate-100">
 										{selectedPo.poNumber}
 									</h2>
 								</div>
 
 								<span
-									class="w-fit rounded-full px-3 py-1.5 text-sm font-medium {selectedPo.status ===
+									class="w-fit rounded-full px-3 py-1.5 text-xs font-bold {selectedPo.status ===
 									'Approved'
-										? 'bg-green-100 text-green-700'
+										? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30'
 										: selectedPo.status === 'Issued'
-											? 'bg-blue-100 text-blue-700'
+											? 'bg-sky-500/15 text-sky-700 dark:text-sky-300 border border-sky-500/30'
 											: selectedPo.status === 'Draft'
-												? 'bg-gray-100 text-gray-700'
-												: 'bg-yellow-100 text-yellow-700'}"
+												? 'bg-slate-500/15 text-slate-700 dark:text-slate-300 border border-slate-500/30'
+												: 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30'}"
 								>
 									{selectedPo.status}
 								</span>
@@ -555,10 +548,10 @@
 
 						<div class="space-y-6 p-6">
 							<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-								<div class="rounded-lg border border-gray-200 p-4">
-									<p class="text-xs text-gray-500">Vendor</p>
+								<div class="rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/60 p-4">
+									<p class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Vendor</p>
 
-									<p class="mt-1 font-semibold text-gray-900">
+									<p class="mt-1 font-bold text-slate-900 dark:text-slate-100">
 										{poVendor?.name ||
 											poVendor?.vendor_name ||
 											poVendor?.company_name ||
@@ -566,22 +559,22 @@
 									</p>
 								</div>
 
-								<div class="rounded-lg border border-gray-200 p-4">
-									<p class="text-xs text-gray-500">
+								<div class="rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/60 p-4">
+									<p class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
 										Total Amount
 									</p>
 
-									<p class="mt-1 text-xl font-bold text-gray-900">
+									<p class="mt-1 text-xl font-black text-slate-900 dark:text-slate-100">
 										₹{selectedPo.totalAmount.toLocaleString('en-IN')}
 									</p>
 								</div>
 
-								<div class="rounded-lg border border-gray-200 p-4">
-									<p class="text-xs text-gray-500">
+								<div class="rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/60 p-4">
+									<p class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
 										Purchase Request
 									</p>
 
-									<p class="mt-1 font-medium text-gray-900">
+									<p class="mt-1 font-semibold text-slate-900 dark:text-slate-100">
 										{poRequest?.request_number ||
 											poRequest?.requestNumber ||
 											poRequest?.title ||
@@ -590,12 +583,12 @@
 									</p>
 								</div>
 
-								<div class="rounded-lg border border-gray-200 p-4">
-									<p class="text-xs text-gray-500">
+								<div class="rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/60 p-4">
+									<p class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
 										Created On
 									</p>
 
-									<p class="mt-1 font-medium text-gray-900">
+									<p class="mt-1 font-semibold text-slate-900 dark:text-slate-100">
 										{selectedPo.createdAt
 											? new Date(
 													selectedPo.createdAt
@@ -607,33 +600,33 @@
 
 							<div>
 								<h3
-									class="mb-3 text-base font-semibold text-gray-900"
+									class="mb-3 text-sm font-bold text-slate-900 dark:text-slate-100"
 								>
 									Purchase Order Information
 								</h3>
 
 								<div
-									class="overflow-hidden rounded-lg border border-gray-200"
+									class="overflow-hidden rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/60"
 								>
 									<div
-										class="grid grid-cols-1 divide-y divide-gray-200 sm:grid-cols-2 sm:divide-x sm:divide-y-0"
+										class="grid grid-cols-1 divide-y divide-slate-200/80 dark:divide-slate-800 sm:grid-cols-2 sm:divide-x sm:divide-y-0"
 									>
 										<div class="p-4">
-											<p class="text-xs text-gray-500">
+											<p class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
 												PO Number
 											</p>
 
-											<p class="mt-1 font-medium text-gray-900">
+											<p class="mt-1 font-bold text-slate-900 dark:text-slate-100">
 												{selectedPo.poNumber}
 											</p>
 										</div>
 
 										<div class="p-4">
-											<p class="text-xs text-gray-500">
+											<p class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
 												Status
 											</p>
 
-											<p class="mt-1 font-medium text-gray-900">
+											<p class="mt-1 font-bold text-slate-900 dark:text-slate-100">
 												{selectedPo.status}
 											</p>
 										</div>
@@ -643,15 +636,15 @@
 
 							<div>
 								<h3
-									class="mb-3 text-base font-semibold text-gray-900"
+									class="mb-3 text-sm font-bold text-slate-900 dark:text-slate-100"
 								>
 									Terms & Conditions
 								</h3>
 
 								<div
-									class="rounded-lg border border-gray-200 bg-gray-50 p-4"
+									class="rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/80 p-4"
 								>
-									<p class="text-sm leading-6 text-gray-600">
+									<p class="text-xs leading-6 text-slate-700 dark:text-slate-300 font-medium">
 										{selectedPo.termsAndConditions}
 									</p>
 								</div>

@@ -6,11 +6,8 @@
 	import { createAndSendVendorInvoice, numberToWords } from '$lib/invoiceService';
 	import { z } from 'zod';
 	import {
-		DollarSign,
-		UploadCloud,
 		CheckCircle2,
 		AlertTriangle,
-		Search,
 		Plus,
 		FileText,
 		Calendar,
@@ -19,14 +16,8 @@
 		ShieldCheck,
 		Building,
 		Receipt,
-		CreditCard,
-		ArrowUpRight,
 		Eye,
-		Check,
-		Layers,
 		BadgeCheck,
-		Filter,
-		ExternalLink,
 		Download
 	} from '@lucide/svelte';
 	import { downloadTaxInvoicePdf } from '$lib/pdfService';
@@ -512,7 +503,7 @@
 					<span class="font-extrabold text-slate-400 uppercase tracking-widest text-[10px]">Vendor:</span>
 					<select bind:value={filterVendor} class="select select-bordered select-xs text-[11px] font-semibold rounded-xl bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800">
 						<option value="All">All Vendors</option>
-						{#each allVendors as v}
+						{#each allVendors as v (v.id)}
 							<option value={v.id}>{v.name}</option>
 						{/each}
 					</select>
@@ -520,14 +511,14 @@
 			{/if}
 		</div>
 
-		<div class="text-[11px] text-slate-400 font-semibold">
+		<div class="text-[11px] text-slate-500 dark:text-slate-400 font-semibold">
 			Showing <span class="text-slate-800 dark:text-slate-200 font-bold">{invoices.length}</span> record{invoices.length === 1 ? '' : 's'}
 		</div>
 	</div>
 
 	<!-- Invoices Data Table -->
 	<div class="glass-card rounded-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-xl text-xs">
-		<div class="overflow-x-auto">
+		<div class="table-responsive">
 			<table class="table table-md w-full">
 				<thead class="bg-slate-100/80 dark:bg-slate-900/80 font-extrabold text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-800">
 					<tr>
@@ -546,13 +537,13 @@
 				<tbody class="divide-y divide-slate-100 dark:divide-slate-800/60">
 					{#if invoices.length === 0}
 						<tr>
-							<td colspan={isAdmin ? 8 : 7} class="text-center py-14 text-slate-400 font-semibold">
+							<td colspan={isAdmin ? 8 : 7} class="text-center py-14 text-slate-500 dark:text-slate-400 font-semibold">
 								<Receipt class="w-8 h-8 mx-auto text-slate-300 dark:text-slate-700 mb-2 opacity-60" />
 								No invoice documents found for the selected criteria.
 							</td>
 						</tr>
 					{/if}
-					{#each invoices as inv}
+					{#each invoices as inv (inv.id || inv.invoiceNumber)}
 						{@const po = db.getPurchaseOrders().find((/** @type {any} */ p) => p.poNumber === inv.poNumber || p.po_number === inv.poNumber)}
 						{@const vendor = db.getVendors().find((/** @type {any} */ v) => v.id === inv.vendorId || v.vendorId === inv.vendorId || v.id === po?.vendorId)}
 						{@const vendorDisplayName = inv.vendorName || vendor?.name || 'Authorized Supplier'}
@@ -688,7 +679,7 @@
 						</label>
 						<select id="inv-po" bind:value={invoicePoNumber} class="select text-xs w-full border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 rounded-xl">
 							<option value="">-- Choose PO --</option>
-							{#each issuedPos as po}
+							{#each issuedPos as po (po.id || po.poNumber)}
 								<option value={po.poNumber}>{po.poNumber} (₹{Number(po.totalAmount || 0).toLocaleString()})</option>
 							{/each}
 						</select>
@@ -943,7 +934,7 @@
 								</tr>
 							</thead>
 							<tbody class="divide-y divide-slate-100 text-[11px]">
-								{#each lineItems as item, idx}
+								{#each lineItems as item, idx (item.name + idx)}
 									{@const itemTaxable = Number(item.total || item.unitPrice || 0)}
 									{@const itemCgst = Math.round(itemTaxable * 0.09 * 100) / 100}
 									{@const itemSgst = Math.round(itemTaxable * 0.09 * 100) / 100}

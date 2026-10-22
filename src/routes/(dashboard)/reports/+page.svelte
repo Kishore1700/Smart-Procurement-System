@@ -7,11 +7,8 @@
 		FileSpreadsheet,
 		FileDown,
 		FileText,
-		Printer,
 		TrendingUp,
 		BarChart3,
-		CheckCircle2,
-		ShieldCheck,
 		Download
 	} from '@lucide/svelte';
 	import {
@@ -30,8 +27,8 @@
 
 	// Export functions
 	function exportCSV(/** @type {string} */ type) {
-		let headers = '';
-		let rows = [];
+		let headers;
+		let rows;
 
 		if (type === 'requests') {
 			headers = 'Request ID,Title,Category,Cost,Status,Priority,Created Date\n';

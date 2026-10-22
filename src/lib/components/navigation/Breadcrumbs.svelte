@@ -19,23 +19,23 @@
 </script>
 
 {#if items.length > 0}
-	<nav class="flex items-center gap-2 text-xs mb-6 px-1 py-1" aria-label="Breadcrumbs">
+	<nav class="flex flex-wrap items-center gap-1.5 sm:gap-2 text-xs mb-4 sm:mb-6 px-1 py-1" aria-label="Breadcrumbs">
 		<a
 			href="/dashboard"
-			class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 font-semibold transition-colors shadow-xs"
+			class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 hover:text-sky-600 dark:hover:text-sky-300 font-semibold transition-colors shadow-xs"
 		>
 			<Home class="w-3.5 h-3.5" />
 			<span class="text-[11px]">Home</span>
 		</a>
 
-		{#each items as item, idx}
-			<ChevronRight class="w-3.5 h-3.5 text-slate-400 dark:text-slate-600 shrink-0" />
+		{#each items as item, idx (item.href)}
+			<ChevronRight class="w-3.5 h-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
 			{#if idx === items.length - 1}
-				<span class="px-2.5 py-1 rounded-lg bg-sky-50 dark:bg-sky-950/50 text-sky-700 dark:text-sky-400 font-bold border border-sky-200/60 dark:border-sky-800/60 text-[11px] shadow-xs">
+				<span class="px-2.5 py-1 rounded-lg bg-sky-50 dark:bg-sky-950/80 text-sky-700 dark:text-sky-300 font-bold border border-sky-200 dark:border-sky-800 text-[11px] shadow-xs">
 					{item.label}
 				</span>
 			{:else}
-				<a href={item.href} class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800/60 text-slate-600 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-400 font-semibold transition-colors text-[11px]">
+				<a href={item.href} class="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 hover:text-sky-600 dark:hover:text-sky-300 font-semibold transition-colors text-[11px]">
 					{item.label}
 				</a>
 			{/if}

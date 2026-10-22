@@ -117,7 +117,6 @@ function drawCorporateFooter(doc, generatedBy = 'Authorized Officer') {
  * Draw Official Verification & Signature Box
  */
 function drawVerificationStampAndSignatures(doc, startY, user) {
-	const pageWidth = doc.internal.pageSize.getWidth();
 	const y = startY + 8;
 
 	// Verification Box (Left)
@@ -335,7 +334,7 @@ export function downloadDepartmentBudgetsReport(depts, user) {
 	doc.roundedRect(14 + (cardW + 3) * 2, kpiY, cardW, 16, 1.5, 1.5, 'F');
 	doc.setFontSize(7);
 	doc.setTextColor(220, 38, 38);
-	doc.text('TOTAL UTILIZED (SPENT)', 17 + (cardW + 3) * 2, kpiY + 5);
+	doc.text(`TOTAL UTILIZED (${overallBurnRate}%)`, 17 + (cardW + 3) * 2, kpiY + 5);
 	doc.setFontSize(9.5);
 	doc.text(formatCurrency(totalUtilized), 17 + (cardW + 3) * 2, kpiY + 12);
 

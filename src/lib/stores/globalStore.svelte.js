@@ -7,11 +7,13 @@ class GlobalStore {
 currentUser = $state(null);
 theme = $state('light');
 sidebarExpanded = $state(true);
-searchQuery = $state('');
-toasts = $state([]);
-notifications = $state([]);
-activeRole = $state('Guest');
-sessionCheckInterval = null;
+	mobileMenuOpen = $state(false);
+	isLogoutModalOpen = $state(false);
+	searchQuery = $state('');
+	toasts = $state([]);
+	notifications = $state([]);
+	activeRole = $state('Guest');
+	sessionCheckInterval = null;
 
 constructor() {
 	if (typeof window !== 'undefined') {
@@ -29,7 +31,7 @@ constructor() {
 					this.activeRole = parsed.role || 'Guest';
 					this.loadNotifications(parsed.id);
 					this.startSessionTimer();
-				} catch (error) {
+				} catch {
 					this.clearSession();
 				}
 			}
@@ -89,7 +91,9 @@ async login(user) {
 
 	try {
 		db.logAction(finalUser.id, 'User Login', 'Logged in from IP client session.');
-	} catch (error) {}
+	} catch {
+		// Log action error ignored
+	}
 
 	const email = user?.email;
 	if (email) {
@@ -129,11 +133,24 @@ async login(user) {
 	return finalUser;
 }
 
+toggleSidebar() {
+	this.sidebarExpanded = !this.sidebarExpanded;
+}
+
+toggleMobileMenu() {
+	this.mobileMenuOpen = !this.mobileMenuOpen;
+}
+
+closeMobileMenu() {
+	this.mobileMenuOpen = false;
+}
+
 clearSession() {
 	if (this.sessionCheckInterval) clearInterval(this.sessionCheckInterval);
 	this.currentUser = null;
 	this.activeRole = 'Guest';
 	this.notifications = [];
+	this.mobileMenuOpen = false;
 
 	if (typeof window !== 'undefined') {
 		localStorage.removeItem('current_user');
@@ -141,15 +158,32 @@ clearSession() {
 	}
 }
 
+promptLogout() {
+	this.isLogoutModalOpen = true;
+}
+
+cancelLogout() {
+	this.isLogoutModalOpen = false;
+}
+
+async confirmLogout() {
+	this.isLogoutModalOpen = false;
+	await this.logout();
+}
+
 async logout() {
 	if (this.currentUser) {
 		try {
 			db.logAction(this.currentUser.id, 'User Logout', 'Logged out of session.');
-		} catch (error) {}
+		} catch {
+			// Ignore log error
+		}
 
 		try {
 			await supabase.auth.signOut();
-		} catch (e) {}
+		} catch {
+			// Ignore supabase signout error
+		}
 
 		this.clearSession();
 		this.showToast('Logged out successfully', 'info');

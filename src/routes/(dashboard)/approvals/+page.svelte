@@ -148,10 +148,10 @@
 					}))
 				}));
 
-				const map = new Map();
-				fetchedPRs.forEach((p) => map.set(p.id, p));
-				remotePRs.forEach((p) => map.set(p.id, p));
-				pendingApprovals = Array.from(map.values());
+				const mapObj = {};
+				fetchedPRs.forEach((p) => { mapObj[p.id] = p; });
+				remotePRs.forEach((p) => { mapObj[p.id] = p; });
+				pendingApprovals = Object.values(mapObj);
 			}
 		} catch {
 			// ignore
@@ -262,11 +262,10 @@
 		globalStore.showToast(`Request ${status} successfully!`, 'success');
 		approvalComments = '';
 		selectedRequestId = null;
+		pendingApprovals = db.getPurchaseRequests().filter((pr) => pr.status === 'Pending Approval');
 
-		// Async Supabase update
-		withTimeout(supabase.from('approvals').insert(approvalRecord), 800).catch(
-			() => {}
-		);
+		// Async Supabase update in background without blocking UI
+		withTimeout(supabase.from('approvals').insert(approvalRecord), 300).catch(() => {});
 		withTimeout(
 			supabase
 				.from('purchase_requests')
@@ -276,10 +275,10 @@
 					updated_at: new Date().toISOString()
 				})
 				.eq('id', selectedRequest.id),
-			800
+			300
 		).catch(() => {});
 
-		await loadPendingApprovals();
+		void loadPendingApprovals();
 	}
 
 	onMount(() => {
@@ -327,7 +326,7 @@
 				</div>
 			{:else}
 				<div class="space-y-3">
-					{#each pendingApprovals as pr}
+					{#each pendingApprovals as pr (pr.id)}
 						<button
 							type="button"
 							onclick={() => (selectedRequestId = pr.id)}
@@ -542,7 +541,7 @@
 								<tbody
 									class="divide-y divide-slate-100 dark:divide-slate-800/60"
 								>
-									{#each selectedRequest.items || [] as item}
+									{#each selectedRequest.items || [] as item, idx (item.id || item.itemName || idx)}
 										<tr>
 											<td
 												class="font-bold text-slate-800 dark:text-slate-200"
@@ -588,13 +587,13 @@
 									<p class="font-extrabold text-slate-800 dark:text-slate-200">
 										Submitted by Requester
 									</p>
-									<p class="text-[10px] text-slate-400 font-medium">
+									<p class="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
 										{formatDateTime(selectedRequest.createdAt)}
 									</p>
 								</div>
 							</div>
 
-							{#each approvalHistory as app}
+							{#each approvalHistory as app (app.id || app.created_at)}
 								<div class="flex gap-3 items-start">
 									<div
 										class="p-1.5 bg-emerald-500/10 text-emerald-500 rounded-full mt-0.5 border border-emerald-500/20"

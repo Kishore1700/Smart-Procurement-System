@@ -4,15 +4,10 @@
 	import {
 		Users,
 		User,
-		ShieldAlert,
-		Settings,
 		RefreshCw,
-		CheckCircle2,
-		Activity,
-		Trash2
+		Activity
 	} from '@lucide/svelte';
 
-	let role = $derived(globalStore.currentUser?.role || 'Employee');
 	let currentUser = $derived(globalStore.currentUser);
 
 	let usersList = $derived(db.getUsers());
@@ -76,7 +71,7 @@
 			</h3>
 
 			<div class="divide-y divide-slate-100 dark:divide-slate-800 overflow-y-auto max-h-[400px] space-y-3">
-				{#each usersList as user}
+				{#each usersList as user (user.id)}
 					<div class="flex items-center justify-between pt-3 first:pt-0">
 						<div class="flex items-center gap-3">
 							<div class="w-9 h-9 rounded-full bg-sky-500/10 dark:bg-sky-500/20 text-sky-500 flex items-center justify-center border border-sky-500/30 shrink-0">
@@ -84,7 +79,7 @@
 							</div>
 							<div>
 								<h4 class="font-black text-slate-900 dark:text-slate-100 leading-tight">{user.fullName}</h4>
-								<p class="text-[10px] text-slate-400 mt-0.5 font-medium">{user.email} • <b class="uppercase text-sky-500 font-extrabold">{user.role}</b></p>
+								<p class="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5 font-medium">{user.email} • <b class="uppercase text-sky-600 dark:text-sky-400 font-extrabold">{user.role}</b></p>
 							</div>
 						</div>
 
@@ -111,14 +106,14 @@
 			</h3>
 
 			<div class="divide-y divide-slate-100 dark:divide-slate-800 overflow-y-auto max-h-[400px] space-y-3">
-				{#each auditLogs as log}
+				{#each auditLogs as log (log.id)}
 					<div class="pt-3 first:pt-0">
-						<div class="flex justify-between text-[10px] text-slate-400 font-extrabold uppercase">
+						<div class="flex justify-between text-[11px] text-slate-500 dark:text-slate-400 font-extrabold uppercase">
 							<span>{log.username} ({log.role})</span>
 							<span>{new Date(log.timestamp).toLocaleDateString()}</span>
 						</div>
 						<p class="font-bold text-slate-900 dark:text-slate-100 mt-1 leading-snug">{log.action}</p>
-						<p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 leading-snug">{log.details}</p>
+						<p class="text-[11px] text-slate-600 dark:text-slate-300 mt-0.5 leading-snug">{log.details}</p>
 					</div>
 				{/each}
 			</div>

@@ -6,13 +6,10 @@
 		Plus,
 		Search,
 		Star,
-		Users,
 		Phone,
 		Mail,
 		MapPin,
-		Trash2,
-		Briefcase,
-		ShieldCheck
+		Trash2
 	} from '@lucide/svelte';
 
 	let role = $derived(globalStore.currentUser?.role || 'Employee');
@@ -58,8 +55,7 @@
 
 	// Get all distinct categories
 	let allCategories = $derived.by(() => {
-		const cats = new Set();
-		db.getVendors().forEach((/** @type {any} */ v) => v.categories.forEach((/** @type {any} */ c) => cats.add(c)));
+		const cats = new Set(db.getVendors().flatMap((/** @type {any} */ v) => v.categories || []));
 		return ['All', ...Array.from(cats)];
 	});
 
@@ -185,9 +181,9 @@
 		</div>
 
 		<div class="flex items-center gap-2">
-			<span class="text-[11px] font-extrabold text-slate-400 uppercase tracking-widest">Category:</span>
+			<span class="text-[11px] font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Category:</span>
 			<select bind:value={filterCategory} class="select select-bordered select-xs text-[11px] font-semibold rounded-xl bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800">
-				{#each allCategories as cat}
+				{#each allCategories as cat (cat)}
 					<option value={cat}>{cat}</option>
 				{/each}
 			</select>
@@ -197,11 +193,11 @@
 	<!-- Vendor Deck Grid -->
 	<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 		{#if vendors.length === 0}
-			<div class="col-span-full glass-card border border-slate-200/80 dark:border-slate-800 p-12 text-center text-slate-400 text-xs font-semibold shadow-lg rounded-2xl">
+			<div class="col-span-full glass-card border border-slate-200/80 dark:border-slate-800 p-12 text-center text-slate-500 dark:text-slate-400 text-xs font-semibold shadow-lg rounded-2xl">
 				No vendors match the search parameters.
 			</div>
 		{/if}
-		{#each vendors as vendor}
+		{#each vendors as vendor (vendor.id)}
 			<div class="glass-card border border-slate-200/80 dark:border-slate-800 shadow-xl hover:shadow-2xl transition-all duration-300 rounded-2xl p-5 flex flex-col gap-4 relative overflow-hidden group hover:-translate-y-1">
 				<!-- Ribbon Status -->
 				<span class="absolute top-4 right-4 badge font-extrabold px-2.5 py-1 text-[9px] uppercase border-none rounded-full {vendor.status === 'Active' ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30' : 'bg-slate-500/20 text-slate-400'}">
@@ -210,7 +206,7 @@
 
 				<div>
 					<h3 class="font-black text-sm text-slate-900 dark:text-slate-100 leading-tight group-hover:text-sky-500 transition-colors">{vendor.name}</h3>
-					<p class="text-[10px] text-slate-400 mt-1 uppercase tracking-wider font-extrabold">Contact: {vendor.contactPerson}</p>
+					<p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-wider font-extrabold">Contact: {vendor.contactPerson}</p>
 				</div>
 
 				<!-- Rating / Performance -->
@@ -221,13 +217,13 @@
 						<span class="text-[10px] text-slate-400 font-semibold">/ 5</span>
 					</div>
 					<div class="text-right">
-						<p class="text-[9px] text-slate-400 font-extrabold uppercase leading-none">Performance</p>
+						<p class="text-[9px] text-slate-500 dark:text-slate-400 font-extrabold uppercase leading-none">Performance</p>
 						<p class="text-xs font-black text-emerald-600 dark:text-emerald-400 mt-0.5">{vendor.performanceScore}%</p>
 					</div>
 				</div>
 
 				<!-- Contact Details -->
-				<div class="space-y-2 text-xs text-slate-600 dark:text-slate-300 flex-1">
+				<div class="space-y-2 text-xs text-slate-700 dark:text-slate-200 flex-1">
 					<div class="flex items-center gap-2.5">
 						<Mail class="w-4 h-4 text-sky-500 shrink-0" />
 						<span class="truncate">{vendor.email}</span>
@@ -244,7 +240,7 @@
 
 				<!-- Category tags -->
 				<div class="flex flex-wrap gap-1.5">
-					{#each vendor.categories as cat}
+					{#each vendor.categories as cat (cat)}
 						<span class="px-2 py-0.5 rounded-full bg-sky-500/10 border border-sky-500/30 text-sky-600 dark:text-sky-400 text-[9px] font-extrabold">{cat}</span>
 					{/each}
 				</div>

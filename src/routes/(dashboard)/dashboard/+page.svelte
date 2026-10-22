@@ -9,16 +9,12 @@
 		CheckSquare,
 		TrendingUp,
 		DollarSign,
-		Users,
-		CreditCard,
 		Truck,
 		PlusCircle,
-		ShieldAlert,
 		ListTodo,
 		Activity,
 		ChevronRight,
-		ThumbsUp,
-		Building
+		ThumbsUp
 	} from '@lucide/svelte';
 
 	let currentUser = $derived(globalStore.currentUser);
@@ -36,9 +32,7 @@
 		const pos = db.getPurchaseOrders();
 		const depts = db.getDepartments();
 		const invoices = db.getInvoices();
-		const vendors = db.getVendors();
 		const quotes = db.getQuotations();
-		const deliveries = db.getDeliveries();
 
 		const myPrs = prs.filter((/** @type {any} */ p) => p.requesterId === currentUser?.id);
 		const myDeptPrs = prs.filter((/** @type {any} */ p) => p.departmentId === currentUser?.departmentId);
@@ -51,7 +45,7 @@
 					pendingPrs: myPrs.filter((/** @type {any} */ p) => p.status === 'Pending Approval').length,
 					estimatedCost: myPrs.reduce((/** @type {number} */ sum, /** @type {any} */ p) => sum + p.estimatedCost, 0)
 				};
-			case 'Manager':
+			case 'Manager': {
 				const myDept = depts.find((/** @type {any} */ d) => d.id === currentUser?.departmentId);
 				return {
 					budgetUtilized: myDept?.utilizedBudget || 0,
@@ -61,7 +55,8 @@
 					).length,
 					totalDeptValue: myDeptPrs.reduce((/** @type {number} */ sum, /** @type {any} */ p) => sum + p.estimatedCost, 0)
 				};
-			case 'Vendor':
+			}
+			case 'Vendor': {
 				const myQuotes = quotes.filter((/** @type {any} */ q) => q.vendorId === currentUser?.vendorId);
 				const myPos = pos.filter((/** @type {any} */ p) => p.vendorId === currentUser?.vendorId);
 				return {
@@ -70,6 +65,7 @@
 					pendingDeliveries: myPos.filter((/** @type {any} */ p) => p.status === 'Issued').length,
 					invoiceCount: invoices.filter((/** @type {any} */ i) => pos.find((/** @type {any} */ p) => p.poNumber === i.poNumber && p.vendorId === currentUser?.vendorId)).length
 				};
+			}
 			default:
 				return {};
 		}
@@ -198,9 +194,6 @@
 					New Request
 				</a>
 			{/if}
-			<button onclick={() => db.reset()} class="btn btn-ghost btn-sm text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-				Reset Mock Data
-			</button>
 		</div>
 	</div>
 
@@ -339,15 +332,15 @@
 			</div>
 			<div class="divide-y divide-slate-100 dark:divide-slate-800/60 flex-1 overflow-y-auto space-y-3">
 				{#if pendingTasks.length === 0}
-					<div class="p-8 text-center text-slate-400 text-xs font-semibold">
+					<div class="p-8 text-center text-slate-500 dark:text-slate-400 text-xs font-semibold">
 						No pending action items!
 					</div>
 				{:else}
-					{#each pendingTasks as task}
+					{#each pendingTasks as task (task.title + task.desc)}
 						<div class="flex items-center justify-between pt-3.5 first:pt-0 group">
 							<div>
 								<h4 class="text-xs font-bold text-slate-800 dark:text-slate-200 group-hover:text-sky-500 transition-colors">{task.title}</h4>
-								<p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{task.desc}</p>
+								<p class="text-[11px] text-slate-600 dark:text-slate-400 mt-0.5">{task.desc}</p>
 							</div>
 							<a
 								href={task.link}
@@ -371,7 +364,7 @@
 				</h3>
 			</div>
 			<div class="space-y-4 overflow-y-auto max-h-75 flex-1">
-				{#each db.getAuditLogs().slice(0, 5) as log}
+				{#each db.getAuditLogs().slice(0, 5) as log (log.id)}
 					<div class="flex items-start gap-3">
 						<div class="p-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-sky-500 shrink-0 mt-0.5 shadow-xs">
 							<TrendingUp class="w-3.5 h-3.5" />

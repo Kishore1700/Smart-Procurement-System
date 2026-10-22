@@ -379,7 +379,7 @@ class MockDatabase {
 	updateTrigger = $state(0);
 
 	get(key, initial) {
-		const _ = this.updateTrigger;
+		void this.updateTrigger;
 		if (typeof window === 'undefined') return initial;
 		const val = localStorage.getItem(key);
 		if (!val) {

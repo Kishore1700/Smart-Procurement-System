@@ -9,7 +9,7 @@ function getEnvVar(key, defaultValue = '') {
 	try {
 		if (env && /** @type {any} */ (env)[key]) return /** @type {any} */ (env)[key];
 		if (typeof process !== 'undefined' && process.env && process.env[key]) return process.env[key];
-	} catch (e) {
+	} catch {
 		// ignore
 	}
 

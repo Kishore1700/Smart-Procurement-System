@@ -69,10 +69,10 @@
 					updatedAt: pr.updated_at,
 					items: pr.purchase_request_items || []
 				}));
-				const map = new Map();
-				list.forEach(p => map.set(p.id, p));
-				remoteList.forEach(p => map.set(p.id, p));
-				approvedRequests = Array.from(map.values());
+				const mapObj = {};
+				list.forEach(p => { mapObj[p.id] = p; });
+				remoteList.forEach(p => { mapObj[p.id] = p; });
+				approvedRequests = Object.values(mapObj);
 			}
 		} catch (e) {
 			console.warn('Supabase PR fetch failed, fallback to db:', e);
@@ -88,8 +88,7 @@
 			selectedRequestId = approvedRequests[0].id;
 		}
 
-		await loadComparedRequest();
-		await loadQuotations();
+		await Promise.all([loadComparedRequest(), loadQuotations()]);
 	}
 
 	async function loadComparedRequest() {
@@ -108,14 +107,17 @@
 		}
 
 		try {
-			const { data, error } = await supabase
-				.from('purchase_requests')
-				.select(`
-					*,
-					purchase_request_items (*)
-				`)
-				.eq('id', selectedRequestId)
-				.single();
+			const { data, error } = await withTimeout(
+				supabase
+					.from('purchase_requests')
+					.select(`
+						*,
+						purchase_request_items (*)
+					`)
+					.eq('id', selectedRequestId)
+					.single(),
+				250
+			);
 
 			if (!error && data) {
 				comparedPr = {
@@ -126,7 +128,7 @@
 				return;
 			}
 		} catch (e) {
-			console.warn('Supabase single PR fetch failed:', e);
+			console.warn('Supabase single PR fetch fallback:', e);
 		}
 
 		const localPr = db.getPurchaseRequests().find((/** @type {any} */ pr) => pr.id === selectedRequestId);
@@ -144,15 +146,18 @@
 	async function loadVendors() {
 		let list = [];
 		try {
-			const { data, error } = await supabase
-				.from('vendors')
-				.select('*');
+			const { data, error } = await withTimeout(
+				supabase
+					.from('vendors')
+					.select('*'),
+				250
+			);
 
 			if (!error && data && data.length > 0) {
 				list = data;
 			}
 		} catch (e) {
-			console.warn('Supabase vendor fetch failed:', e);
+			console.warn('Supabase vendor fetch fallback:', e);
 		}
 
 		if (list.length === 0) {
@@ -170,11 +175,14 @@
 
 		let list = [];
 		try {
-			const { data, error } = await supabase
-				.from('quotations')
-				.select('*')
-				.eq('request_id', selectedRequestId)
-				.order('created_at', { ascending: false });
+			const { data, error } = await withTimeout(
+				supabase
+					.from('quotations')
+					.select('*')
+					.eq('request_id', selectedRequestId)
+					.order('created_at', { ascending: false }),
+				250
+			);
 
 			if (!error && data && data.length > 0) {
 				list = data.map((/** @type {any} */ q) => ({
@@ -568,6 +576,9 @@
 		localPOs.unshift(newPo);
 		db.savePurchaseOrders(localPOs);
 
+		// Resolve selected request details
+		const selectedRequest = comparedPr || approvedRequests.find((/** @type {any} */ pr) => pr.id === selectedRequestId);
+
 		// Generate & Dispatch Vendor Tax Invoice to Admin
 		let generatedInvNum = '';
 		try {
@@ -710,9 +721,9 @@
 
 		<select
 			bind:value={selectedRequestId}
-			class="select select-bordered select-xs text-[11px] font-semibold rounded-xl bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 w-72"
+			class="select select-bordered select-xs text-[11px] font-semibold rounded-xl bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800 w-full sm:w-72"
 		>
-			{#each approvedRequests as pr}
+			{#each approvedRequests as pr (pr.id)}
 				<option value={pr.id}>
 					{pr.id} - {pr.title} (₹{Number(
 						pr.estimatedCost
@@ -725,7 +736,7 @@
 
 {#if quotations.length === 0}
 	<div
-		class="glass-card border border-slate-200/80 dark:border-slate-800 p-12 text-center text-slate-400 text-xs font-semibold shadow-lg rounded-2xl"
+		class="glass-card border border-slate-200/80 dark:border-slate-800 p-12 text-center text-slate-500 dark:text-slate-400 text-xs font-semibold shadow-lg rounded-2xl"
 	>
 		No vendor quotations have been submitted for this request yet.
 	</div>
@@ -755,9 +766,7 @@
 					<h3
 						class="font-black text-slate-900 dark:text-slate-100 text-sm mt-2"
 					>
-						{getVendorName(
-							recommendedQuote.vendorId
-						)}
+						{recVendor?.name || getVendorName(recommendedQuote.vendorId)}
 					</h3>
 
 					<p
@@ -864,7 +873,7 @@
 				<tbody
 					class="divide-y divide-slate-100 dark:divide-slate-800/60"
 				>
-					{#each quotations as q}
+					{#each quotations as q (q.id)}
 						<tr
 							class="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors {q.recommendationScore >=
 							90
